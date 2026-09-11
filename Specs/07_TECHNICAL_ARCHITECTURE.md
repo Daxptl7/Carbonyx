@@ -29,7 +29,118 @@ Carbonyx is built as a modular, decentralized circular carbon tracking protocol 
 └──────────────────────────────────────┘  └──────────────────────────────┘
 ```
 
-## 2. On-Chain vs. Off-Chain Separation of Concerns
+## 2. Monorepo Directory Structure
+
+```
+Carbonyx/
+├── .gitignore
+├── README.md
+├── Specs/                         # 13 Frozen Specifications
+│   ├── 01_PROJECT_CONSTITUTION.md
+│   ├── 02_PRODUCT_SPECIFICATION.md
+│   ├── 03_SCOPE_SPECIFICATION.md
+│   ├── 04_PERSONAS_AND_USE_CASES.md
+│   ├── 05_USER_FLOWS.md
+│   ├── 06_UI_UX_SPECIFICATION.md
+│   ├── 07_TECHNICAL_ARCHITECTURE.md
+│   ├── 08_DOMAIN_DATA_MODEL.md
+│   ├── 09_SMART_CONTRACT_SPECIFICATION.md
+│   ├── 10_AI_ML_SPECIFICATION.md
+│   ├── 11_API_SPECIFICATION.md
+│   ├── 12_ROADMAP.md
+│   └── 13_AI_CODING_GUIDELINES.md
+├── contracts/                     # Jash (Solidity / Foundry)
+│   ├── foundry.toml
+│   ├── src/
+│   │   ├── CarbonRegistry.sol
+│   │   ├── CarbonCreditNFT.sol
+│   │   ├── VerifierStakingLedger.sol
+│   │   ├── EscrowSettlement.sol
+│   │   └── interfaces/
+│   ├── test/
+│   │   ├── CarbonRegistry.t.sol
+│   │   ├── VerifierStakingLedger.t.sol
+│   │   ├── EscrowSettlement.t.sol
+│   │   └── Invariants.t.sol
+│   └── script/
+│       ├── Deploy.s.sol
+│       └── Seed.s.sol
+├── backend/                       # Dax (Node.js / Express + Supabase)
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── src/
+│   │   ├── server.ts
+│   │   ├── config/
+│   │   │   ├── supabase.ts
+│   │   │   └── web3.ts
+│   │   ├── routes/
+│   │   │   ├── identity.routes.ts
+│   │   │   ├── projects.routes.ts
+│   │   │   ├── evidence.routes.ts
+│   │   │   ├── risk.routes.ts
+│   │   │   ├── verifiers.routes.ts
+│   │   │   ├── credits.routes.ts
+│   │   │   ├── marketplace.routes.ts
+│   │   │   └── disputes.routes.ts
+│   │   ├── services/
+│   │   │   ├── merkle.service.ts
+│   │   │   ├── cryptographic.service.ts
+│   │   │   ├── relayer.service.ts
+│   │   │   └── eventListener.service.ts
+│   │   └── utils/
+│   └── tests/
+├── ml-engine/                     # Siddhant (Python / FastAPI)
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── config.py
+│   │   ├── api/
+│   │   │   └── score.py
+│   │   ├── models/
+│   │   │   ├── anomaly_detector.py
+│   │   │   ├── correlation_checker.py
+│   │   │   └── xai_reasoner.py
+│   │   ├── schemas/
+│   │   │   └── evidence_schema.py
+│   │   └── utils/
+│   │       └── verifier_matcher.py
+│   └── tests/
+│       └── test_score.py
+├── frontend/                      # Hilag (React / Vite / Tailwind)
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tailwind.config.js
+│   ├── src/
+│   │   ├── main.tsx
+│   │   ├── App.tsx
+│   │   ├── lib/
+│   │   │   ├── supabase.ts
+│   │   │   └── web3.ts
+│   │   ├── components/
+│   │   │   ├── layout/
+│   │   │   │   ├── Header.tsx
+│   │   │   │   └── Sidebar.tsx
+│   │   │   ├── cards/
+│   │   │   │   ├── NFTCertificateCard.tsx
+│   │   │   │   └── AnomalyDiffViewer.tsx
+│   │   │   ├── modals/
+│   │   │   │   ├── EscrowBuyModal.tsx
+│   │   │   │   └── EvidenceUploadModal.tsx
+│   │   │   └── ui/
+│   │   └── pages/
+│   │       ├── IssuerStudio.tsx
+│   │       ├── VerifierPortal.tsx
+│   │       ├── Marketplace.tsx
+│   │       ├── BuyerPortfolio.tsx
+│   │       └── AuditorExplorer.tsx
+└── supabase/                      # Database migrations & seeds
+    ├── config.toml
+    └── migrations/
+        └── 20260912000000_init_schema.sql
+```
+
+## 3. On-Chain vs. Off-Chain Separation of Concerns
 
 - **Off-Chain Execution (Supabase & Backend):**
   - **Supabase Storage:** Raw telemetry artifacts (sensor CSVs, Sentinel-2 TIFFs, drone footage, audit PDFs).
@@ -43,10 +154,10 @@ Carbonyx is built as a modular, decentralized circular carbon tracking protocol 
   - Escrow fund custody, release, and buyer refund logic.
   - Dynamic ERC-721 NFT ownership, transfer locks, and permanent retirement burning.
 
-## 3. Architecture Decision Records (ADRs)
+## 4. Architecture Decision Records (ADRs)
 
 ### ADR-001: Monorepo Structure
-- **Decision:** Use a single repository containing `/contracts` (Foundry), `/backend` (Node.js), `/ml-engine` (Python FastAPI), `/frontend` (React/Vite), and `/Specs`.
+- **Decision:** Use a single repository containing `/contracts` (Foundry), `/backend` (Node.js), `/ml-engine` (Python FastAPI), `/frontend` (React/Vite), `/supabase`, and `/Specs`.
 - **Rationale:** Enables rapid atomic development across smart contract ABIs, backend models, and frontend UI.
 
 ### ADR-002: Supabase as Unified Off-Chain Data & Realtime Layer
