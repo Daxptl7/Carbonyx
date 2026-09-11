@@ -1,153 +1,71 @@
 # User Flows
 
-## Flow 1 — Project Registration
+## Flow 1 — Project Registration & DID Generation
+**Actor:** Project Proponent (Issuer)
+1. Issuer connects wallet on the frontend.
+2. System computes deterministic Decentralized Identifier: `did:carbonyx:<keccak256(ownerAddress + projectId)>`.
+3. Issuer submits project metadata (name, projectType, location, claimedAnnualTonnage).
+4. System generates simulated cryptographic KYC attestation hash signed by authority.
+5. Issuer signs transaction `registerProject(projectId, did, kycAttestationHash)` on-chain.
+6. Baseline challenge window begins (configurable timer, e.g. 7 days or demo 5 minutes).
 
-**Actor:** Project Issuer
+## Flow 2 — Multi-Source Evidence Ingestion & Hashing
+**Actor:** Issuer / Automated Telemetry Relayer
+1. Telemetry payloads uploaded (IoT sensors, Sentinel-2 satellite vegetation indices, operational audit docs).
+2. Cryptographic Validation Engine verifies payload signatures and hashes.
+3. Backend Evidence Aggregator computes SHA-256 leaf hashes and builds Merkle Tree.
+4. Relayer submits `commitEvidenceBundle(bundleId, projectId, merkleRoot)` to `CarbonRegistry.sol`.
 
-**Preconditions:**
-- Issuer has a connected wallet
-- Issuer has project metadata ready (name, type, location, description)
+## Flow 3 — AI Anomaly Detection & Risk Scoring
+**Actor:** AI/ML Service (Automated)
+1. ML engine fetches raw evidence bundle.
+2. Cross-source correlation check evaluates N-of-M source agreement.
+3. Isolation Forest & Z-Score models check for abnormal spikes, sensor-satellite discrepancies, or historical anomalies.
+4. Service returns: `confidenceScore` (0–100%), `riskLevel` (LOW / MEDIUM / HIGH), `anomalyFlags`, and human-readable `explanationReason`.
+5. If `confidenceScore >= 85%`: Backend records `recordRiskResult(bundleId, confidenceMet=true, verifierRequired=false)`.
+6. If `confidenceScore < 85%`: Backend records `recordRiskResult(bundleId, confidenceMet=false, verifierRequired=true)` and triggers Verifier Escalation.
 
-**Steps:**
-1. Issuer connects wallet on the frontend
-2. Issuer fills project registration form (name, project type, location, baseline description)
-3. Frontend sends registration request to backend
-4. Backend validates required fields and wallet signature
-5. Backend/contract generates a persistent project ID and stores project record (on-chain reference + off-chain metadata)
-6. Frontend displays confirmation with project ID and status "Registered — awaiting evidence"
+## Flow 4 — Verifier Staking & Pool Review (Low-Confidence Escalation)
+**Actor:** Independent Verifier
+1. Verifier deposits collateral into `VerifierStakingLedger.sol` via `stake()` (must meet `MIN_STAKE`).
+2. Protocol-managed verifier pool assigns escalated bundle to an active staked verifier.
+3. Verifier logs into portal, inspects side-by-side evidence diffs and AI anomaly flags.
+4. Verifier submits on-chain decision via `recordVerification(bundleId, approved=true|false)`.
+5. If approved: Policy engine unlocks minting; verifier earns verification reward and increases reputation score.
+6. If rejected: Bundle is permanently blocked from minting.
 
-**Success:** Project exists with a persistent ID, owner = issuer wallet, status = "Registered," ready to accept evidence.
+## Flow 5 — Smart-Contract-Gated Dynamic NFT Minting
+**Actor:** Issuer / Relayer
+1. Policy engine validates all conditions on-chain:
+   - Evidence committed & valid Merkle root exists.
+   - `correlationMet == true`.
+   - `(confidenceMet == true) OR (verifierRequired == true AND verifierApproved == true)`.
+   - `bundleAlreadyMinted == false`.
+2. Smart contract calls `CarbonCreditNFT.mintCredit(recipient, projectId, bundleId, tonnage, vintageYear)`.
+3. An ERC-721 token is minted with dynamic on-chain metadata linking to the Merkle root.
 
-**Failure:**
-- Missing required fields → form validation error, no submission sent
-- Wallet not connected/signature invalid → registration rejected, error shown
-- Duplicate project ID collision (should not occur under normal ID generation) → backend returns error, issuer prompted to retry
+## Flow 6 — Marketplace Listing & Escrow-Protected Purchase
+**Actor:** Buyer & Issuer
+1. Issuer lists minted Carbon Credit NFT on the Carbonyx Marketplace with a unit price.
+2. Corporate Buyer clicks "Buy with Escrow Protection" and sends funds to `EscrowSettlement.sol`.
+3. Funds are locked in escrow (`ESCROW_LOCKED`), and the NFT is held in custodial escrow state.
+4. Once the challenge/inspection window clears without dispute, buyer or relayer calls `releaseEscrow()`.
+5. Funds are transferred to the Issuer, and the Carbon Credit NFT is transferred to the Buyer's wallet.
 
----
+## Flow 7 — Credit Retirement & Proof-of-Offset Generation
+**Actor:** Corporate Buyer
+1. Buyer navigates to "My Carbon Portfolio" and clicks "Retire Credit".
+2. Buyer provides public retirement reason (e.g., "2026 Scope 1 & 2 Emissions Offset").
+3. Transaction `retireCredit(tokenId, reason)` updates status to `RETIRED` and permanently disables future transfers.
+4. Protocol generates an immutable, shareable cryptographic **Certificate of Retirement**.
 
-## Flow 2 — Evidence Submission
-
-**Actor:** Project Issuer
-
-**Steps:**
-1. Issuer opens a registered project
-2. Issuer selects evidence source type (sensor, satellite, verifier attestation, documentation)
-3. Issuer uploads/enters evidence payload for that source (file, reading, or structured data) — seeded/mock data for demo
-4. Frontend sends payload + source type + project ID + timestamp to backend
-5. Backend stores raw payload off-chain, computes a hash for the payload, and queues it for aggregation
-6. Issuer repeats for additional source types (minimum of 2–3 recommended for correlation to pass)
-7. Issuer triggers "Submit for validation" once satisfied with the evidence set
-
-**Success:** All submitted evidence payloads are stored, hashed, and linked to the project; bundle moves to Flow 3.
-
-**Failure:**
-- Payload fails basic format validation → rejected with specific error, issuer re-submits
-- Project not found/not owned by issuer → submission blocked
-
----
-
-## Flow 3 — Evidence Validation
-
-**Input:** A project ID with one or more submitted evidence payloads, each tagged with source type and timestamp.
-
-**Processing:**
-1. Backend aggregates all payloads for the bundle into a standardized structure
-2. Backend computes a Merkle root over the aggregated evidence, establishing a tamper-evident commitment
-3. Backend verifies each payload's hash/signature against what was recorded at submission time
-4. Any payload that fails integrity verification is flagged and excluded from the valid set
-5. Backend checks source-type diversity against a configurable N-of-M threshold (e.g., at least 2 of 4 source types present)
-6. If integrity checks pass and correlation threshold is met, bundle proceeds to risk scoring (Flow 4/5); if not, bundle is marked "Validation Failed"
-
-**Possible Outcomes:**
-- **Valid, sufficiently correlated** → proceeds to risk scoring
-- **Integrity failure on one or more payloads** → those payloads excluded; bundle proceeds only if remaining evidence still meets the correlation threshold, otherwise marked "Validation Failed — insufficient evidence"
-- **Insufficient source diversity** → bundle marked "Validation Failed — needs additional evidence source," issuer prompted to submit more
-
----
-
-## Flow 4 — High Confidence Project
-
-Evidence
-→ Validation
-→ High Confidence
-→ Verification
-→ Approved
-→ Mint
-
-**Narrative:** Evidence bundle passes integrity and correlation checks. The ML risk-scoring engine evaluates the bundle and returns a confidence score above the configured auto-approval threshold, with a stated reason (e.g., "all sources consistent, no statistical outliers"). Because confidence is high, the system auto-generates an approval decision (no human verifier step required) and immediately submits the bundle to the Smart Contract Policy Engine. The contract checks issuance conditions (evidence authenticated + threshold met + no existing credit for this bundle) and mints the credit. Credit appears in the issuer's wallet with status "Issued," fully linked to its evidence trail.
-
----
-
-## Flow 5 — Suspicious Project
-
-Evidence
-→ Validation
-→ Anomaly
-→ Low Confidence
-→ Manual Verification
-→ Approved/Rejected
-
-**Narrative:** Evidence bundle passes integrity checks but the ML risk-scoring engine detects an anomaly (e.g., a sensor reading inconsistent with satellite data, or a statistical outlier) and returns a confidence score below the auto-approval threshold, with a stated reason (e.g., "sensor and satellite readings diverge beyond tolerance"). The bundle is routed to the Verifier queue instead of auto-issuance. The verifier reviews the evidence bundle and the flagged reason, and either:
-- **Approves** → bundle proceeds to the Smart Contract Policy Engine and, if issuance conditions are met, the credit is minted with a record noting manual verification was required, or
-- **Rejects** → bundle is marked "Rejected," no credit is minted, issuer is notified with the rejection reason and may submit additional/corrected evidence
-- **Requests more evidence** → bundle returns to Flow 2/3 for the issuer to supplement, then is re-scored
-
----
-
-## Flow 6 — Credit Transfer
-
-**Actor:** Credit owner (Issuer post-issuance, or Corporate Buyer)
-
-**Steps:**
-1. Owner selects an issued, non-retired credit in their wallet view
-2. Owner enters recipient wallet address
-3. Frontend sends transfer request to the smart contract
-4. Contract verifies caller is current owner and credit is not retired/disputed
-5. Contract updates ownership on-chain and emits a transfer event
-6. Frontend/backend reflects new ownership in the UI and lifecycle trail
-
-**Success:** Credit ownership updated on-chain; visible immediately in both wallets' views and in the audit trail.
-
-**Failure:**
-- Caller is not current owner → transaction reverts
-- Credit is retired or disputed/revoked → transfer blocked by contract, error shown
-
----
-
-## Flow 7 — Credit Retirement
-
-**Actor:** Credit owner (typically Corporate Buyer)
-
-**Steps:**
-1. Owner selects an issued, non-retired credit they own
-2. Owner confirms retirement (with optional reason/claim reference, e.g., "offsetting 2026 Scope 1 emissions")
-3. Frontend sends retirement request to the smart contract
-4. Contract verifies caller is current owner and credit is not already retired
-5. Contract marks the credit as permanently retired and emits a retirement event
-6. Frontend/backend reflects "Retired" status; lifecycle trail updated
-
-**Success:** Credit is permanently non-transferable and non-reusable; any subsequent transfer/re-issuance attempt against it or its evidence bundle is rejected on-chain.
-
-**Failure:**
-- Caller is not current owner → transaction reverts
-- Credit already retired → transaction reverts, "already retired" error shown
-
----
-
-## Flow 8 — Dispute / Revocation
-
-**Actor:** Verifier/Auditor or Regulator (dispute initiator); Admin/simplified governance (adjudicator)
-
-**Steps:**
-1. Actor selects an issued credit and submits a dispute with supporting evidence/reason
-2. System flags the credit as "Disputed" on-chain; credit is frozen (no transfer/retirement permitted while disputed)
-3. Admin/simplified governance role reviews the dispute evidence and the original evidence trail
-4. Adjudicator records a decision: **Uphold** (dispute valid) or **Reject** (dispute invalid)
-5. If upheld: contract revokes the credit, status becomes "Revoked," and the revocation + reason are permanently recorded
-6. If rejected: "Disputed" flag is cleared, credit returns to its prior status (Issued/Transferred), and the dispute outcome is recorded for audit purposes
-
-**Success:** Dispute outcome (uphold or reject) and any resulting revocation are permanently and transparently recorded, closing the loop from the original evidence trail through to a final integrity decision.
-
-**Failure:**
-- Dispute submitted without supporting evidence → rejected at submission, actor prompted to provide justification
-- Dispute submitted against an already-revoked credit → blocked, "already revoked" error shown
+## Flow 8 — Dispute Resolution, Credit Revocation & Stake Slashing
+**Actor:** Auditor / Regulator / Stakeholder
+1. Stakeholder discovers post-issuance fraud and initiates `disputeCredit(tokenId, evidenceUri)`.
+2. Credit status flips to `DISPUTED` (trading/retirement locked).
+3. If dispute is UPHELD by arbiter:
+   - Credit status permanently transitions to `REVOKED`.
+   - If in escrow: Escrow funds are 100% refunded to the buyer (`refundEscrow()`).
+   - The verifier who approved the fraudulent bundle has **50% of their staked collateral slashed** (`slashVerifier()`), and their reputation score is heavily penalized.
+   - Slashed funds are distributed to the dispute initiator and the insurance/compensation pool.
+4. If dispute is DISMISSED: Credit reverts to active state.
