@@ -2,11 +2,12 @@ import { Router, Request, Response } from 'express';
 import { supabase } from '../config/supabase';
 import { CryptographicService } from '../services/cryptographic.service';
 import { RelayerService } from '../services/relayer.service';
+import { requireRoles } from '../auth/middleware';
 
 const router = Router();
 const ML_ENGINE_URL = process.env.ML_ENGINE_URL || 'http://localhost:8000';
 
-router.post('/evaluate', async (req: Request, res: Response) => {
+router.post('/evaluate', requireRoles('PROJECT_PROPONENT'), async (req: Request, res: Response) => {
   try {
     const { bundleId, projectId, projectType, declaredTonnage, evidenceItems } = req.body || {};
 
@@ -151,6 +152,8 @@ router.post('/evaluate', async (req: Request, res: Response) => {
       riskAssessment: riskRecord || assessmentRecord,
       assessment: riskRecord || assessmentRecord,
       txHash: onChainRiskTxHash,
+      onChainRiskTxHash,
+      mintResult: null,
       message: 'Risk assessment evaluated and recorded successfully'
     });
   } catch (error: any) {

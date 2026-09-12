@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { SatelliteService } from '../services/satellite.service';
+import { requireRoles } from '../auth/middleware';
 
 const router = Router();
 
@@ -16,7 +17,7 @@ router.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-router.post('/ndvi', async (req: Request, res: Response) => {
+router.post('/ndvi', requireRoles('PROJECT_PROPONENT'), async (req: Request, res: Response) => {
   try {
     const { latitude, longitude, bbox, radiusKm, baseline, current, declaredTonnage } = req.body || {};
 

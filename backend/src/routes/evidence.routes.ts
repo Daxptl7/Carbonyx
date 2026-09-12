@@ -3,6 +3,7 @@ import { supabase } from '../config/supabase';
 import { CryptographicService } from '../services/cryptographic.service';
 import { MerkleService } from '../services/merkle.service';
 import { RelayerService } from '../services/relayer.service';
+import { requireRoles } from '../auth/middleware';
 
 const router = Router();
 
@@ -109,8 +110,8 @@ async function handleEvidenceUpload(req: Request, res: Response) {
   }
 }
 
-router.post('/upload', handleEvidenceUpload);
-router.post('/bundle', handleEvidenceUpload);
+router.post('/upload', requireRoles('PROJECT_PROPONENT'), handleEvidenceUpload);
+router.post('/bundle', requireRoles('PROJECT_PROPONENT'), handleEvidenceUpload);
 
 router.get('/bundle/:bundleId', async (req: Request, res: Response) => {
   try {

@@ -7,6 +7,7 @@ const REGISTRY_ABI = [
   'function registerProject(bytes32 projectId, string calldata did, bytes32 kycHash, uint256 challengeDuration) external returns (bytes32)',
   'function commitEvidenceBundle(bytes32 bundleId, bytes32 projectId, bytes32 merkleRoot) external',
   'function recordRiskResult(bytes32 bundleId, bool correlationMet, bool confidenceMet, bool verifierRequired) external',
+  'function recordVerification(bytes32 bundleId, bool approved) external',
   'function mintCredit(bytes32 bundleId, uint256 co2Tonnage, uint16 vintageYear) external returns (uint256 tokenId)'
 ];
 
@@ -123,9 +124,25 @@ export class RelayerService {
     }
   }
 
+  public static async recordVerificationOnChain(bundleId: string, approved: boolean): Promise<string> {
+    if (!this.registryContract) {
+      return `0xmock_verification_tx_${Date.now()}`;
+    }
+    try {
+      const bBundleId = CryptographicService.toBytes32(bundleId);
+      const tx = await this.registryContract.recordVerification(bBundleId, approved);
+      const receipt = await tx.wait();
+      return receipt.hash;
+    } catch (err: any) {
+      console.error('Relayer recordVerification error:', err.message);
+      return `0xsimulated_verification_tx_${Date.now()}`;
+    }
+  }
+
   // Aliases for compatibility
   public static registerProject = RelayerService.registerProjectOnChain;
   public static commitEvidenceBundle = RelayerService.commitEvidenceBundleOnChain;
   public static recordRiskResult = RelayerService.recordRiskResultOnChain;
+  public static recordVerification = RelayerService.recordVerificationOnChain;
   public static mintCredit = RelayerService.mintCreditOnChain;
 }

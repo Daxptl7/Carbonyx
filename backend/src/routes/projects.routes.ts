@@ -2,21 +2,26 @@ import { Router, Request, Response } from 'express';
 import { supabase } from '../config/supabase';
 import { CryptographicService } from '../services/cryptographic.service';
 import { RelayerService } from '../services/relayer.service';
+import { requireRoles } from '../auth/middleware';
+import { isAddress } from 'ethers';
 
 const router = Router();
 
 // GET /api/projects/baseline-explorer - Feed of all submitted projects and baseline observation data
-router.get('/baseline-explorer', async (_req: Request, res: Response) => {
-  try {
-    const { data: projects, error: pError } = await supabase
-      .from('projects')
-      .select('*')
-      .order('created_at', { ascending: false });
+router.get(
+  '/baseline-explorer',
+  requireRoles('PROJECT_PROPONENT', 'REGULATOR_AUDITOR'),
+  async (_req: Request, res: Response) => {
+    try {
+      const { data: projects, error: pError } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (pError) return res.status(500).json({ error: pError.message });
+      if (pError) return res.status(500).json({ error: pError.message });
 
-    const enriched = [];
-    for (const proj of (projects || [])) {
+      const enriched = [];
+      for (const proj of (projects || [])) {
       const { data: bundle } = await supabase
         .from('evidence_bundles')
         .select('*')
@@ -44,28 +49,29 @@ router.get('/baseline-explorer', async (_req: Request, res: Response) => {
       const daysRemaining = Math.floor(remainingMs / (24 * 60 * 60 * 1000));
       const hoursRemaining = Math.floor((remainingMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
 
-      enriched.push({
-        project: proj,
-        bundle,
-        evidenceItems: items,
-        risk,
-        challengeWindow: {
-          daysRemaining,
-          hoursRemaining,
-          isActive: remainingMs > 0,
-          expiryDate: new Date(expiryMs).toISOString()
-        }
-      });
-    }
+        enriched.push({
+          project: proj,
+          bundle,
+          evidenceItems: items,
+          risk,
+          challengeWindow: {
+            daysRemaining,
+            hoursRemaining,
+            isActive: remainingMs > 0,
+            expiryDate: new Date(expiryMs).toISOString()
+          }
+        });
+      }
 
-    return res.status(200).json({ projects: enriched });
-  } catch (error: any) {
-    return res.status(500).json({ error: error.message });
+      return res.status(200).json({ projects: enriched });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
   }
-});
+);
 
 // POST /api/projects/challenge - Submit formal public baseline dispute
-router.post('/challenge', async (req: Request, res: Response) => {
+router.post('/challenge', requireRoles('REGULATOR_AUDITOR'), async (req: Request, res: Response) => {
   try {
     const { projectId, bundleId, challengerAddress, category, reason } = req.body;
 
@@ -105,12 +111,15 @@ router.post('/challenge', async (req: Request, res: Response) => {
 });
 
 // POST /api/projects/register - Register new carbon project & generate DID
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', requireRoles('PROJECT_PROPONENT'), async (req: Request, res: Response) => {
   try {
     const { projectId, name, projectType, location, claimedAnnualTonnage, ownerAddress, kycPassportData } = req.body;
 
     if (!projectId || !name || !ownerAddress) {
       return res.status(400).json({ error: 'projectId, name, and ownerAddress are required' });
+    }
+    if (!isAddress(ownerAddress)) {
+      return res.status(400).json({ error: 'ownerAddress must be a valid Ethereum address' });
     }
 
     const did = CryptographicService.generateDID(ownerAddress);
