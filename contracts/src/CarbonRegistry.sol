@@ -4,11 +4,9 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ICarbonRegistry.sol";
 import "./interfaces/ICarbonCreditNFT.sol";
+import "./interfaces/IVerifierStakingLedger.sol";
+import "./interfaces/IEscrowSettlement.sol";
 
-/**
- * @title CarbonRegistry
- * @notice Central registry for project DIDs, cryptographic evidence bundle Merkle commitments, and policy gates.
- */
 contract CarbonRegistry is Ownable, ICarbonRegistry {
 
     struct Project {
@@ -36,12 +34,25 @@ contract CarbonRegistry is Ownable, ICarbonRegistry {
         uint256 mintedTokenId;
     }
 
+    struct CreditRecord {
+        uint256 tokenId;
+        bytes32 projectId;
+        bytes32 bundleId;
+        CreditStatus status;
+        string disputeReason;
+    }
+
+    enum CreditStatus { ISSUED, ESCROWED, TRANSFERRED, RETIRED, DISPUTED, REVOKED }
+
     ICarbonCreditNFT public carbonCreditNFT;
-    address public verifierStakingLedger;
-    address public escrowSettlement;
+    IVerifierStakingLedger public verifierStakingLedger;
+    IEscrowSettlement public escrowSettlement;
 
     mapping(bytes32 => Project) public projects;
     mapping(bytes32 => EvidenceBundle) public evidenceBundles;
+    mapping(uint256 => CreditRecord) public credits;
+    mapping(bytes32 => address) public bundleVerifiers;
+    mapping(uint256 => bytes32) public tokenToEscrow;
     mapping(address => bool) public trustedRelayers;
 
     error ProjectAlreadyRegistered(bytes32 projectId);
@@ -53,9 +64,11 @@ contract CarbonRegistry is Ownable, ICarbonRegistry {
     error CorrelationNotMet(bytes32 bundleId);
     error ConfidenceThresholdNotMet(bytes32 bundleId);
     error VerifierApprovalRequired(bytes32 bundleId);
+    error InsufficientVerifierStake(address verifier);
     error UnauthorizedRelayer(address caller);
     error UnauthorizedCaller(address caller);
     error InvalidNFTContract();
+    error CreditNotInDispute(uint256 tokenId);
 
     modifier onlyRelayerOrOwner() {
         if (!trustedRelayers[msg.sender] && msg.sender != owner()) {
@@ -73,11 +86,11 @@ contract CarbonRegistry is Ownable, ICarbonRegistry {
     }
 
     function setVerifierStakingLedger(address _ledger) external onlyOwner {
-        verifierStakingLedger = _ledger;
+        verifierStakingLedger = IVerifierStakingLedger(_ledger);
     }
 
     function setEscrowSettlement(address _escrow) external onlyOwner {
-        escrowSettlement = _escrow;
+        escrowSettlement = IEscrowSettlement(_escrow);
     }
 
     function setTrustedRelayer(address relayer, bool isTrusted) external onlyOwner {
@@ -166,8 +179,19 @@ contract CarbonRegistry is Ownable, ICarbonRegistry {
             revert UnauthorizedCaller(msg.sender);
         }
 
+        if (address(verifierStakingLedger) != address(0)) {
+            if (!verifierStakingLedger.isStaked(msg.sender)) {
+                revert InsufficientVerifierStake(msg.sender);
+            }
+        }
+
         bundle.assignedVerifier = msg.sender;
         bundle.verifierApproved = approved;
+        bundleVerifiers[bundleId] = msg.sender;
+
+        if (address(verifierStakingLedger) != address(0)) {
+            verifierStakingLedger.updateReputation(msg.sender, approved);
+        }
 
         emit VerificationRecorded(bundleId, msg.sender, approved);
     }
@@ -195,8 +219,6 @@ contract CarbonRegistry is Ownable, ICarbonRegistry {
             revert CorrelationNotMet(bundleId);
         }
 
-        // Patent Policy Invariant:
-        // Must meet confidence >= 85% OR have an approved verified audit
         if (!bundle.confidenceMet) {
             if (!bundle.verifierRequired || !bundle.verifierApproved) {
                 revert ConfidenceThresholdNotMet(bundleId);
@@ -221,6 +243,13 @@ contract CarbonRegistry is Ownable, ICarbonRegistry {
         );
 
         bundle.mintedTokenId = tokenId;
+        credits[tokenId] = CreditRecord({
+            tokenId: tokenId,
+            projectId: bundle.projectId,
+            bundleId: bundleId,
+            status: CreditStatus.ISSUED,
+            disputeReason: ""
+        });
 
         emit CreditIssued(tokenId, bundle.projectId, bundleId, recipient);
         return tokenId;
@@ -230,6 +259,9 @@ contract CarbonRegistry is Ownable, ICarbonRegistry {
         if (address(carbonCreditNFT) != address(0)) {
             carbonCreditNFT.setCreditStatus(tokenId, ICarbonCreditNFT.CreditStatus.DISPUTED);
         }
+        credits[tokenId].status = CreditStatus.DISPUTED;
+        credits[tokenId].disputeReason = reason;
+
         emit CreditDisputed(tokenId, msg.sender, reason);
     }
 
@@ -238,12 +270,30 @@ contract CarbonRegistry is Ownable, ICarbonRegistry {
         bool upholdDispute,
         string calldata resolutionDetails
     ) external onlyOwner {
+        CreditRecord storage credit = credits[tokenId];
+        if (credit.status != CreditStatus.DISPUTED) {
+            revert CreditNotInDispute(tokenId);
+        }
+
         if (address(carbonCreditNFT) != address(0)) {
             if (upholdDispute) {
                 carbonCreditNFT.setCreditStatus(tokenId, ICarbonCreditNFT.CreditStatus.REVOKED);
+                credit.status = CreditStatus.REVOKED;
+
+                bytes32 escrowId = tokenToEscrow[tokenId];
+                if (escrowId != bytes32(0) && address(escrowSettlement) != address(0)) {
+                    escrowSettlement.refundEscrow(escrowId);
+                }
+
+                address approvingVerifier = bundleVerifiers[credit.bundleId];
+                if (approvingVerifier != address(0) && address(verifierStakingLedger) != address(0)) {
+                    verifierStakingLedger.slashVerifier(approvingVerifier, 50);
+                }
+
                 emit CreditRevoked(tokenId, resolutionDetails);
             } else {
                 carbonCreditNFT.setCreditStatus(tokenId, ICarbonCreditNFT.CreditStatus.ISSUED);
+                credit.status = CreditStatus.ISSUED;
                 emit DisputeDismissed(tokenId);
             }
         }

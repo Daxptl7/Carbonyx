@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-interface ICarbonCreditNFT {
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
+interface ICarbonCreditNFT is IERC721 {
     enum CreditStatus { ISSUED, ESCROWED, TRANSFERRED, RETIRED, DISPUTED, REVOKED }
 
     event CreditMinted(uint256 indexed tokenId, bytes32 indexed projectId, bytes32 indexed bundleId, address owner, uint256 tonnage);

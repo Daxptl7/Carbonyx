@@ -36,6 +36,10 @@ contract EscrowSettlement is Ownable, IEscrowSettlement {
         registry = _registry;
     }
 
+    function setCarbonCreditNFT(address _nftContract) external onlyOwner {
+        nftContract = _nftContract;
+    }
+
     function setNFTContract(address _nftContract) external onlyOwner {
         nftContract = _nftContract;
     }
