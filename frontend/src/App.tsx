@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Sparkles, Database, Layers, CheckCircle2, AlertCircle, LogOut, Wallet } from 'lucide-react';
 import { connectMetaMask, truncateAddress, WalletState } from './lib/web3';
+import IssuerStudio from './pages/IssuerStudio';
+import VerifierPortal from './pages/VerifierPortal';
+import Marketplace from './pages/Marketplace';
+import AuditorExplorer from './pages/AuditorExplorer';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'issuer' | 'verifier' | 'marketplace' | 'explorer'>('issuer');
@@ -142,47 +146,12 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Hero & Status Dashboard */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col items-center justify-center text-center">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#06B6D4]/10 border border-[#06B6D4]/20 text-[#06B6D4] text-xs font-mono mb-4">
-          <Sparkles className="w-3.5 h-3.5" />
-          Phase C1 Scaffolding Live & Ready
-        </div>
-        
-        <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4 max-w-3xl leading-tight">
-          Evidence-First Verification Before Carbon Credit Minting
-        </h1>
-        
-        <p className="text-slate-400 max-w-2xl text-base md:text-lg mb-8">
-          Eliminating phantom credits and double-counting through cryptographic multi-source corroboration, AI anomaly detection, verifier staking, and escrow settlements.
-        </p>
-
-        {/* 4 Persona Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full text-left mt-2">
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass hover:border-[#10B981]/50 transition-all">
-            <Database className="w-6 h-6 text-[#10B981] mb-3" />
-            <h3 className="font-bold text-white mb-1">Multi-Source Ingestion</h3>
-            <p className="text-slate-400 text-sm">IoT flux sensors, Sentinel-2 satellite NDVI & operational logs.</p>
-          </div>
-          
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass hover:border-[#06B6D4]/50 transition-all">
-            <Sparkles className="w-6 h-6 text-[#06B6D4] mb-3" />
-            <h3 className="font-bold text-white mb-1">AI Anomaly Engine</h3>
-            <p className="text-slate-400 text-sm">Isolation Forest & Z-Score checks with plain-English XAI reports.</p>
-          </div>
-          
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass hover:border-[#F59E0B]/50 transition-all">
-            <Shield className="w-6 h-6 text-[#F59E0B] mb-3" />
-            <h3 className="font-bold text-white mb-1">Verifier Staking</h3>
-            <p className="text-slate-400 text-sm">Collateral locks & automated 50% slashing for fraudulent audits.</p>
-          </div>
-          
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass hover:border-[#8B5CF6]/50 transition-all">
-            <Layers className="w-6 h-6 text-[#8B5CF6] mb-3" />
-            <h3 className="font-bold text-white mb-1">Dynamic NFT Escrow</h3>
-            <p className="text-slate-400 text-sm">Guaranteed buyer refunds & permanent retirement burn proofs.</p>
-          </div>
-        </div>
+      {/* Main Tab Content */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8">
+        {activeTab === 'issuer' && <IssuerStudio walletAddress={wallet.address} />}
+        {activeTab === 'verifier' && <VerifierPortal walletAddress={wallet.address} />}
+        {activeTab === 'marketplace' && <Marketplace walletAddress={wallet.address} />}
+        {activeTab === 'explorer' && <AuditorExplorer />}
       </main>
     </div>
   );
