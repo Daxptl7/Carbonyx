@@ -1,380 +1,218 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Database, CheckCircle2, AlertCircle, LogOut, Wallet, Activity } from 'lucide-react';
+import { 
+  Shield, 
+  Sparkles, 
+  Database, 
+  Layers, 
+  CheckCircle2, 
+  AlertCircle, 
+  LogOut, 
+  Wallet, 
+  UserCheck, 
+  ShoppingBag, 
+  Search,
+  Users,
+  ChevronDown,
+  Globe2
+} from 'lucide-react';
 import { connectMetaMask, truncateAddress, WalletState } from './lib/web3';
 import { IssuerStudio } from './pages/IssuerStudio';
-import { HomePage } from './pages/HomePage';
 import VerifierPortal from './pages/VerifierPortal';
 import Marketplace from './pages/Marketplace';
-import AuditorExplorer from './pages/AuditorExplorer';
+import { BaselineExplorer } from './pages/BaselineExplorer';
+
+export const DEMO_PERSONAS = [
+  {
+    role: 'DEVELOPER',
+    name: 'Alice (Project Developer)',
+    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    did: 'did:carbonyx:0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
+    badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+  },
+  {
+    role: 'VERIFIER',
+    name: 'Bob (Staked Verifier & Auditor)',
+    address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    did: 'did:carbonyx:0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
+    badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+  },
+  {
+    role: 'BUYER',
+    name: 'Acme CleanTech ESG (Corporate Buyer)',
+    address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+    did: 'did:carbonyx:0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc',
+    badgeColor: 'bg-sky-500/20 text-sky-400 border-sky-500/30'
+  },
+  {
+    role: 'ADMIN',
+    name: 'Registry Relayer / Admin',
+    address: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
+    did: 'did:carbonyx:0x90f79bf6eb2c4f870365e785982e1f101e93b906',
+    badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+  }
+];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'issuer' | 'verifier' | 'marketplace' | 'explorer'>('overview');
+  const [activeTab, setActiveTab] = useState<'issuer' | 'explorer' | 'verifier' | 'marketplace'>('issuer');
+  const [selectedPersona, setSelectedPersona] = useState(DEMO_PERSONAS[0]);
+  const [showPersonaMenu, setShowPersonaMenu] = useState(false);
+
   const [wallet, setWallet] = useState<WalletState>({
-    address: null,
+    address: DEMO_PERSONAS[0].address,
     signer: null,
-    chainId: null,
-    isConnected: false,
+    chainId: 31337,
+    isConnected: true,
     error: null,
   });
-  const [isConnecting, setIsConnecting] = useState(false);
 
-  const backendUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5005';
+  const backendUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000';
 
-  // Check if wallet was already connected
-  useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).ethereum) {
-      const ethereum = (window as any).ethereum;
-      ethereum.request({ method: 'eth_accounts' }).then((accounts: string[]) => {
-        if (accounts && accounts.length > 0) {
-          handleConnect();
-        }
-      }).catch(console.error);
-
-      ethereum.on('accountsChanged', (accounts: string[]) => {
-        if (accounts.length === 0) {
-          setWallet({ address: null, signer: null, chainId: null, isConnected: false, error: null });
-        } else {
-          handleConnect();
-        }
-      });
-
-      ethereum.on('chainChanged', () => {
-        handleConnect();
-      });
-    }
-  }, []);
-
-  const handleConnect = async () => {
-    setIsConnecting(true);
-    setWallet(prev => ({ ...prev, error: null }));
-    try {
-      const { address, signer, chainId } = await connectMetaMask();
-      setWallet({
-        address,
-        signer,
-        chainId,
-        isConnected: true,
-        error: null,
-      });
-    } catch (err: any) {
-      setWallet(prev => ({ ...prev, error: err.message || 'Failed to connect wallet' }));
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  const handleDisconnect = () => {
+  const selectPersona = (persona: typeof DEMO_PERSONAS[0]) => {
+    setSelectedPersona(persona);
     setWallet({
-      address: null,
+      address: persona.address,
       signer: null,
-      chainId: null,
-      isConnected: false,
-      error: null,
+      chainId: 31337,
+      isConnected: true,
+      error: null
     });
+    setShowPersonaMenu(false);
   };
 
   return (
-    <div className="min-h-screen bg-[#030919] text-white flex flex-col font-sans selection:bg-primary selection:text-white">
-      {/* Global Header (Stitch Xpansiv Theme) */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#030919]/80 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
-        <div className="h-20 max-w-7xl mx-auto px-6 flex items-center justify-between gap-6">
-          <div className="flex items-center gap-8">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className="flex items-center gap-3 group text-left"
-            >
-              <div className="w-8 h-8 flex items-center justify-center">
-                <svg className="w-8 h-8 transform group-hover:scale-105 transition-transform" fill="none" viewBox="0 0 36 36">
-                  <defs>
-                    <linearGradient id="logo-blue-header" x1="0%" x2="100%" y1="0%" y2="100%">
-                      <stop offset="0%" stopColor="#0047FF" />
-                      <stop offset="100%" stopColor="#00D2FF" />
-                    </linearGradient>
-                  </defs>
-                  <path d="M18 2L32 10V26L18 34L4 26V10L18 2Z" fill="#040D21" stroke="url(#logo-blue-header)" strokeWidth="2" />
-                  <path d="M18 8C13 13 13 23 18 28C23 23 23 13 18 8Z" fill="url(#logo-blue-header)" fillOpacity="0.35" stroke="#0047FF" strokeWidth="1.2" />
-                  <circle cx="18" cy="18" fill="#00D2FF" r="3" />
-                  <circle cx="10" cy="13" fill="#0047FF" r="1.5" />
-                  <circle cx="26" cy="13" fill="#00D2FF" r="1.5" />
-                  <circle cx="18" cy="30" fill="#0047FF" r="1.5" />
-                </svg>
-              </div>
-              <div className="flex flex-col">
-                <span className="font-headline-sm text-base font-extrabold tracking-wider text-white group-hover:text-glow-cyan transition-colors">
-                  CARBONYX
-                </span>
-                <span className="font-mono-proof text-[9px] tracking-widest text-glow-cyan/90 uppercase font-semibold">
-                  Protocol v2.4
-                </span>
-              </div>
-            </button>
-
-            <div className="hidden xl:block h-6 w-px bg-white/10" />
-
-            {/* Navigation Tabs (Pill style matching Stitch) */}
-            <nav className="hidden lg:flex items-center gap-1">
-              {(
-                [
-                  { id: 'overview', label: 'Protocol Overview' },
-                  { id: 'issuer', label: 'Issuer Studio' },
-                  { id: 'verifier', label: 'Verifier Portal' },
-                  { id: 'marketplace', label: 'Offset Marketplace' },
-                  { id: 'explorer', label: 'Auditor Explorer' },
-                ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`font-label-md text-sm font-medium px-4 py-2 rounded-full transition-all ${
-                    activeTab === tab.id
-                      ? 'bg-white/10 text-white shadow-inner font-semibold'
-                      : 'text-slate-300 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
+    <div className="min-h-screen bg-[#0B0F17] text-white flex flex-col font-sans selection:bg-[#10B981]/30 selection:text-[#10B981]">
+      {/* Global Header */}
+      <header className="border-b border-white/10 px-4 md:px-8 py-3.5 flex flex-col md:flex-row items-center justify-between gap-3 backdrop-blur-glass bg-[#111827]/80 sticky top-0 z-50">
+        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#10B981] to-[#06B6D4] flex items-center justify-center font-bold text-black text-xl shadow-lg shadow-[#10B981]/20">
+              C
+            </div>
+            <div>
+              <span className="font-extrabold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
+                CARBONYX
+              </span>
+              <span className="ml-2 text-[10px] uppercase px-2 py-0.5 rounded-full bg-[#10B981]/20 text-[#10B981] font-mono border border-[#10B981]/30 hidden sm:inline-block">
+                Patent Protocol C3
+              </span>
+            </div>
           </div>
 
-          {/* Right Header Status & Action */}
-          <div className="flex items-center gap-4">
-            {/* Live Block Beacon */}
-            <div className="hidden 2xl:flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-glow-cyan opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-glow-cyan" />
+          {/* Persona Switcher Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowPersonaMenu(!showPersonaMenu)}
+              className="flex items-center gap-2 bg-slate-900 border border-slate-700 hover:border-emerald-500/50 px-3 py-1.5 rounded-xl text-xs transition-all shadow"
+            >
+              <Users className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="font-semibold text-white truncate max-w-[140px] sm:max-w-[200px]">
+                {selectedPersona.name}
               </span>
-              <span className="font-mono-proof text-[11px] text-slate-300">
-                Mainnet Alpha <span className="text-white/30">•</span> <span className="text-glow-cyan font-mono-data">#19,842,109</span>
-              </span>
-            </div>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
 
-            {/* Consensus Badge */}
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10">
-              <span className="material-symbols-outlined text-glow-cyan text-[14px]">wifi_tethering</span>
-              <span className="font-mono-proof text-[11px] text-slate-300 uppercase">
-                Consensus: <span className="text-white font-semibold">99.98%</span>
-              </span>
-            </div>
-
-            {/* Live Wallet Button */}
-            {wallet.isConnected && wallet.address ? (
-              <div className="flex items-center gap-2 bg-[#0047FF]/15 border border-[#0047FF]/40 rounded-full px-3.5 py-1.5">
-                <div className="w-2 h-2 rounded-full bg-glow-cyan animate-pulse" />
-                <div className="flex flex-col text-left">
-                  <span className="text-xs font-mono font-bold text-white">
-                    {truncateAddress(wallet.address)}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    Chain ID: {wallet.chainId}
-                  </span>
+            {showPersonaMenu && (
+              <div className="absolute right-0 mt-2 w-80 bg-slate-950 border border-slate-800 rounded-2xl p-2 shadow-2xl z-50 space-y-1 backdrop-blur-xl">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1">
+                  Active Demo Persona
                 </div>
-                <button
-                  onClick={handleDisconnect}
-                  title="Disconnect"
-                  className="ml-1 p-1 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-all"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
+                {DEMO_PERSONAS.map((p) => (
+                  <button
+                    key={p.role}
+                    onClick={() => selectPersona(p)}
+                    className={`w-full text-left p-2.5 rounded-xl text-xs transition-all flex items-start justify-between gap-2 ${
+                      selectedPersona.role === p.role 
+                        ? 'bg-emerald-950/60 border border-emerald-500/30 text-white' 
+                        : 'hover:bg-slate-900 text-slate-300'
+                    }`}
+                  >
+                    <div>
+                      <div className="font-bold text-white">
+                        {p.name}
+                      </div>
+                      <div className="text-[10px] font-mono text-emerald-400 truncate mt-0.5">
+                        {truncateAddress(p.address)}
+                      </div>
+                    </div>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase font-bold border ${p.badgeColor}`}>
+                      {p.role}
+                    </span>
+                  </button>
+                ))}
               </div>
-            ) : (
-              <button
-                onClick={handleConnect}
-                disabled={isConnecting}
-                className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-[#0047FF] hover:bg-[#0038CC] text-white font-label-md text-sm font-semibold shadow-md shadow-blue-600/30 transition-all duration-200 disabled:opacity-50"
-              >
-                <span>{isConnecting ? 'Connecting...' : 'Launch App / Connect'}</span>
-                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-              </button>
             )}
+          </div>
+        </div>
 
-            <div className="w-9 h-9 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white">
-              <span className="material-symbols-outlined text-[18px]">person</span>
+        {/* Persona Navigation Tabs */}
+        <nav className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto max-w-full">
+          {(['issuer', 'explorer', 'verifier', 'marketplace'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all whitespace-nowrap ${
+                activeTab === tab
+                  ? 'bg-gradient-to-r from-[#10B981] to-[#06B6D4] text-black font-bold shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {tab === 'issuer' && '🌱 Issuer Studio'}
+              {tab === 'explorer' && '🔍 Baseline Explorer'}
+              {tab === 'verifier' && '🛡️ Verifier Portal'}
+              {tab === 'marketplace' && '🛒 Marketplace'}
+            </button>
+          ))}
+        </nav>
+
+        {/* Identity Pill */}
+        <div className="hidden lg:flex items-center gap-2">
+          <div className="flex items-center gap-2 bg-[#10B981]/10 border border-[#10B981]/30 rounded-xl px-3 py-1.5">
+            <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
+            <div className="flex flex-col text-left">
+              <span className="text-xs font-mono font-bold text-emerald-300">
+                {truncateAddress(wallet.address || selectedPersona.address)}
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {selectedPersona.role} Account
+              </span>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Mobile Subnav */}
-      <div className="lg:hidden fixed top-20 left-0 right-0 z-40 bg-[#030919]/95 border-b border-white/10 px-4 py-2 flex items-center gap-2 overflow-x-auto">
-        {(
-          [
-            { id: 'overview', label: 'Protocol Overview' },
-            { id: 'issuer', label: 'Issuer Studio' },
-            { id: 'verifier', label: 'Verifier Portal' },
-            { id: 'marketplace', label: 'Offset Marketplace' },
-            { id: 'explorer', label: 'Auditor Explorer' },
-          ] as const
-        ).map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`text-xs px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${
-              activeTab === tab.id
-                ? 'bg-white/15 text-white font-semibold shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Spacing for fixed header */}
-      <div className="h-20" />
-
-      {/* Error Alert */}
-      {wallet.error && (
-        <div className="bg-[#EF4444]/15 border-b border-[#EF4444]/30 px-6 py-2.5 text-xs text-[#EF4444] flex items-center justify-center gap-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{wallet.error}</span>
-        </div>
-      )}
-
       {/* Main Content Area */}
-      <main className="flex-1 w-full">
-        {activeTab === 'overview' && (
-          <HomePage
-            wallet={wallet}
-            onConnectWallet={handleConnect}
-            onNavigateTab={setActiveTab}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8">
+        {activeTab === 'issuer' && (
+          <IssuerStudio 
+            wallet={wallet} 
+            backendUrl={backendUrl} 
+            onNavigateToExplorer={() => setActiveTab('explorer')}
           />
         )}
 
-        {activeTab === 'issuer' && (
-          <div className="max-w-7xl mx-auto p-6 md:p-8">
-            <IssuerStudio wallet={wallet} backendUrl={backendUrl} onNavigateTab={setActiveTab} />
-          </div>
+        {activeTab === 'explorer' && (
+          <BaselineExplorer wallet={wallet} backendUrl={backendUrl} />
         )}
 
         {activeTab === 'verifier' && (
-          <div className="max-w-7xl mx-auto p-6 md:p-8">
-            <VerifierPortal walletAddress={wallet.address} />
-          </div>
+          <VerifierPortal walletAddress={wallet.address || selectedPersona.address} />
         )}
 
         {activeTab === 'marketplace' && (
-          <div className="max-w-7xl mx-auto p-6 md:p-8">
-            <Marketplace walletAddress={wallet.address} />
-          </div>
-        )}
-
-        {activeTab === 'explorer' && (
-          <div className="max-w-7xl mx-auto p-6 md:p-8">
-            <AuditorExplorer />
-          </div>
+          <Marketplace walletAddress={wallet.address || selectedPersona.address} />
         )}
       </main>
 
-      {/* Corporate High-Fidelity Footer (for non-overview tabs) */}
-      {activeTab !== 'overview' && (
-        <footer className="w-full bg-[#040D21] border-t border-white/10 text-slate-300 mt-12">
-        <div className="max-w-7xl mx-auto px-6 py-14">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-white/10">
-            {/* Col 1 & 2 */}
-            <div className="lg:col-span-2 flex flex-col gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#10B981] to-[#06B6D4] flex items-center justify-center font-bold text-black text-lg">
-                  C
-                </div>
-                <span className="font-extrabold text-lg text-white tracking-wider">CARBONYX PROTOCOL</span>
-              </div>
-              <p className="text-xs text-slate-400 max-w-md leading-relaxed">
-                Next-generation institutional settlement and cryptographic MRV infrastructure for environmental commodities. Ensuring immutability, zero double-counting, and real-time physical auditing for voluntary and compliance carbon instruments.
-              </p>
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <span className="font-mono text-[10px] px-2.5 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">
-                  UNFCCC Art. 6 Compatible
-                </span>
-                <span className="font-mono text-[10px] px-2.5 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">
-                  Verra Verified Registry Bridge
-                </span>
-                <span className="font-mono text-[10px] px-2.5 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">
-                  Gold Standard Certified
-                </span>
-                <span className="font-mono text-[10px] px-2.5 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">
-                  I-REC Settlement Router
-                </span>
-              </div>
-            </div>
-
-            {/* Col 3: Core Protocols */}
-            <div className="flex flex-col gap-2.5">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">
-                Core Protocols
-              </span>
-              <button onClick={() => setActiveTab('overview')} className="text-xs text-left text-slate-400 hover:text-white transition-colors">
-                Protocol Overview
-              </button>
-              <button onClick={() => setActiveTab('issuer')} className="text-xs text-left text-slate-400 hover:text-white transition-colors">
-                Issuer Studio & DID
-              </button>
-              <button onClick={() => setActiveTab('verifier')} className="text-xs text-left text-slate-400 hover:text-white transition-colors">
-                Verifier Staking Vault
-              </button>
-              <button onClick={() => setActiveTab('marketplace')} className="text-xs text-left text-slate-400 hover:text-white transition-colors">
-                Offset Escrow Settlement
-              </button>
-              <button onClick={() => setActiveTab('explorer')} className="text-xs text-left text-slate-400 hover:text-white transition-colors">
-                Merkle Provenance Explorer
-              </button>
-            </div>
-
-            {/* Col 4: Formal Verification */}
-            <div className="flex flex-col gap-2.5">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">
-                Formal Verification
-              </span>
-              <div className="flex items-center gap-1.5 text-xs text-[#06B6D4]">
-                <Shield className="w-3.5 h-3.5" />
-                <span>CertiK Verified (Score 96.4)</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-[#10B981]">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>OpenZeppelin Foundry v2.4</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                <Database className="w-3.5 h-3.5" />
-                <span>Supabase Vault & IPFS</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                <Activity className="w-3.5 h-3.5" />
-                <span>FastAPI Isolation Forest</span>
-              </div>
-            </div>
-
-            {/* Col 5: Institutional Access */}
-            <div className="flex flex-col gap-3">
-              <span className="font-mono text-xs uppercase tracking-wider text-slate-400 font-semibold">
-                Institutional Access
-              </span>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Connect high-throughput FIX API or sovereign Web3 wallets to execution pools.
-              </p>
-              <button
-                onClick={wallet.isConnected ? () => setActiveTab('issuer') : handleConnect}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/15 transition-all text-xs font-semibold border border-white/15"
-              >
-                <Wallet className="w-3.5 h-3.5" />
-                <span>{wallet.isConnected ? 'Open Studio' : 'Connect Wallet'}</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-            <span className="font-mono text-[11px]">
-              © 2026 Carbonyx Protocol Foundation. All cryptographic rights reserved. Anchored to Ethereum & Arbitrum.
-            </span>
-            <div className="flex items-center gap-6 font-mono text-[11px]">
-              <span>Terms of Settlement</span>
-              <span>Commodity Disclaimers</span>
-              <span>VVB Integrity Charter</span>
-            </div>
-          </div>
+      {/* Footer */}
+      <footer className="border-t border-white/10 px-8 py-4 text-center text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2 max-w-7xl mx-auto w-full">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[#10B981]" />
+          <span>Carbonyx Protocol • Patent-Pending Multi-Source MRV</span>
+        </div>
+        <div>
+          <span>Foundry Contracts • Supabase Vault • FastAPI ML • React 18</span>
         </div>
       </footer>
-      )}
     </div>
   );
 }
