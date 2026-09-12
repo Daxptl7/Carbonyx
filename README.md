@@ -186,6 +186,8 @@ DATABASE_URL=postgresql://postgres:yourpassword@db.your-project.supabase.co:5432
 ML_ENGINE_URL=http://localhost:8000
 RPC_URL=http://127.0.0.1:8545
 CHAIN_ID=31337
+COPERNICUS_CLIENT_ID=
+COPERNICUS_CLIENT_SECRET=
 ```
 
 ### 2. Frontend: `/frontend/.env`
@@ -204,7 +206,7 @@ Create `ml-engine/.env`:
 PORT=8000
 ENVIRONMENT=development
 LOG_LEVEL=info
-MODEL_PATH=models/isolation_forest.joblib
+MODEL_PATH=model/anomaly_model.pkl
 ```
 
 ---
