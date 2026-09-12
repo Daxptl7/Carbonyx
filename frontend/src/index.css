@@ -389,6 +389,68 @@
   color: #00a699 !important;
 }
 
+/* Baseline result cards use a high-contrast white report treatment. */
+.oddox-dashboard-theme main .baseline-project-card {
+  background: #ffffff !important;
+  border-color: #d1d5db !important;
+  color: #000000 !important;
+}
+
+.oddox-dashboard-theme main .baseline-project-card :is(
+  div,
+  p,
+  span,
+  strong,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  button
+) {
+  color: #000000 !important;
+}
+
+.oddox-dashboard-theme main .baseline-project-card [class*="bg-slate-"],
+.oddox-dashboard-theme main .baseline-project-card [class*="bg-black/"],
+.oddox-dashboard-theme main .baseline-project-card .baseline-anomaly-panel {
+  background-color: #ffffff !important;
+}
+
+.oddox-dashboard-theme main .baseline-project-card [class*="border-slate-"],
+.oddox-dashboard-theme main .baseline-project-card [class*="border-white/"] {
+  border-color: #d1d5db !important;
+}
+
+.oddox-dashboard-theme main .baseline-project-card .baseline-progress-track {
+  background-color: #e5e7eb !important;
+}
+
+/* Keep every signed-in page heading open and prominent instead of boxed. */
+.oddox-dashboard-theme main .portal-page-header {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.oddox-dashboard-theme main .portal-page-header :is(h1, h2) {
+  font-size: clamp(2rem, 3vw, 2.75rem) !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.035em !important;
+}
+
+/* Summary cards keep their shape while using one neutral surface and border. */
+.oddox-dashboard-theme main .metric-summary-card {
+  background: #ffffff !important;
+  border-color: #d9d9d9 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

@@ -25,8 +25,15 @@ router.post('/ndvi', requireRoles('PROJECT_PROPONENT'), async (req: Request, res
       return res.status(400).json({ error: 'bbox must be [minLon, minLat, maxLon, maxLat]' });
     }
 
+    if (!bbox && (latitude === undefined || longitude === undefined)) {
+      return res.status(400).json({ error: 'Project latitude and longitude are required when bbox is not provided' });
+    }
+
     if (!bbox && ((latitude !== undefined && Number.isNaN(Number(latitude))) || (longitude !== undefined && Number.isNaN(Number(longitude))))) {
       return res.status(400).json({ error: 'latitude and longitude must be numeric when provided' });
+    }
+    if (!bbox && (Number(latitude) < -90 || Number(latitude) > 90 || Number(longitude) < -180 || Number(longitude) > 180)) {
+      return res.status(400).json({ error: 'Latitude must be between -90 and 90 and longitude between -180 and 180' });
     }
 
     const result = await SatelliteService.getNdviComparison({

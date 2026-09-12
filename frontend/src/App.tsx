@@ -25,16 +25,17 @@ import VerifierPortal from './pages/VerifierPortal';
 import Marketplace from './pages/Marketplace';
 import AuditorExplorer from './pages/AuditorExplorer';
 import { BaselineExplorer } from './pages/BaselineExplorer';
+import MyRegistry from './pages/MyRegistry';
 import LoginPage from './pages/LoginPage';
 import Sidebar from './components/Sidebar';
 import { apiFetch, AuthSession, AuthUser, clearAuthToken, getAuthToken, readApiJson } from './lib/auth';
 
-type ActiveTab = 'overview' | 'issuer' | 'baseline' | 'verifier' | 'marketplace' | 'portfolio' | 'explorer';
+type ActiveTab = 'overview' | 'issuer' | 'my-registry' | 'baseline' | 'verifier' | 'marketplace' | 'portfolio' | 'explorer';
 
 const rolePortal: Record<AuthUser['role'], { label: string; home: ActiveTab; tabs: ActiveTab[] }> = {
-  PROJECT_PROPONENT: { label: 'Project Proponent', home: 'issuer', tabs: ['issuer', 'baseline'] },
+  PROJECT_PROPONENT: { label: 'Project Proponent', home: 'issuer', tabs: ['issuer', 'my-registry', 'baseline'] },
   INDEPENDENT_VERIFIER: { label: 'Independent Verifier & Auditor', home: 'verifier', tabs: ['verifier'] },
-  CORPORATE_BUYER: { label: 'Corporate ESG Buyer', home: 'marketplace', tabs: ['marketplace', 'portfolio'] },
+  CORPORATE_BUYER: { label: 'Corporate ESG Buyer', home: 'marketplace', tabs: ['marketplace', 'portfolio', 'baseline'] },
   REGULATOR_AUDITOR: { label: 'Regulator & Independent Auditor', home: 'explorer', tabs: ['baseline', 'explorer'] }
 };
 
@@ -46,6 +47,7 @@ const navigationTabs: Array<{
 }> = [
   { id: 'overview', label: 'Protocol Overview', description: 'Network activity and controls', icon: LayoutDashboard },
   { id: 'issuer', label: 'Project Studio', description: 'Register and submit evidence', icon: Sprout },
+  { id: 'my-registry', label: 'My Registry', description: 'Projects, objections and revisions', icon: Database },
   { id: 'baseline', label: 'Baseline Registry', description: 'Observe and inspect projects', icon: Globe2 },
   { id: 'verifier', label: 'Verifier Portal', description: 'Stake and review anomalies', icon: ShieldCheck },
   { id: 'marketplace', label: 'Buyer Marketplace', description: 'Discover and acquire credits', icon: Store },
@@ -297,7 +299,9 @@ export default function App() {
   }
 
   const portal = rolePortal[authUser.role];
-  const visibleTabs = navigationTabs.filter((tab) => portal.tabs.includes(tab.id));
+  const visibleTabs = portal.tabs
+    .map((tabId) => navigationTabs.find((tab) => tab.id === tabId))
+    .filter((tab): tab is (typeof navigationTabs)[number] => Boolean(tab));
   const navigateTo = (tab: ActiveTab) => {
     if (portal.tabs.includes(tab)) setActiveTab(tab);
   };
@@ -473,7 +477,7 @@ export default function App() {
               <IssuerStudio
                 wallet={wallet}
                 backendUrl={backendUrl}
-                onNavigateToExplorer={() => navigateTo('baseline')}
+                onNavigateToRegistry={() => navigateTo('my-registry')}
               />
             ) : (
               <div className="mx-auto mt-12 max-w-2xl rounded-3xl border border-[#00a699]/20 bg-white/5 p-8 text-center shadow-[0_24px_80px_rgba(21,237,72,0.15)] backdrop-blur-xl md:p-12">
@@ -503,12 +507,18 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === 'my-registry' && (
+          <div className="max-w-7xl mx-auto p-6 md:p-8">
+            <MyRegistry wallet={wallet} backendUrl={backendUrl} />
+          </div>
+        )}
+
         {activeTab === 'baseline' && (
           <div className="max-w-7xl mx-auto p-6 md:p-8">
             <BaselineExplorer
               wallet={wallet}
               backendUrl={backendUrl}
-              canChallenge={authUser.role === 'REGULATOR_AUDITOR'}
+              canChallenge={authUser.role === 'REGULATOR_AUDITOR' || authUser.role === 'CORPORATE_BUYER'}
             />
           </div>
         )}

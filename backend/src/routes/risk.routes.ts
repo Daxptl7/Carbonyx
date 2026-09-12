@@ -17,6 +17,15 @@ router.post('/evaluate', requireRoles('PROJECT_PROPONENT'), async (req: Request,
 
     const declared = Number(declaredTonnage || 500);
     const rawItems: any[] = Array.isArray(evidenceItems) ? evidenceItems : [];
+    const { data: policyRecord } = await supabase
+      .from('regulator_policies')
+      .select('settings')
+      .eq('policy_name', 'GLOBAL_ISSUANCE_POLICY')
+      .maybeSingle();
+    const activePolicy = policyRecord?.settings || {};
+    const minimumAiConfidence = Number(activePolicy.minimumAiConfidence || 85);
+    const maximumEvidenceDeviation = Number(activePolicy.maximumEvidenceDeviation || 15);
+    const automaticEscalation = activePolicy.automaticEscalation !== false;
 
     // Normalize items for ML schema compatibility
     const normalizedItems = rawItems.map((item: any) => {
@@ -84,9 +93,9 @@ router.post('/evaluate', requireRoles('PROJECT_PROPONENT'), async (req: Request,
           flags.push(`NDVI_DEGRADATION: Satellite canopy NDVI (${item.value}) indicates low vegetative density`);
         }
         const devPct = Math.abs((item.calculatedTonnage - declared) / declared) * 100;
-        if (devPct > 20) {
+        if (devPct > maximumEvidenceDeviation) {
           deductions += 20;
-          flags.push(`TONNAGE_MISMATCH: Calculated tonnage deviates ${devPct.toFixed(1)}% from declared ${declared} tCO2e`);
+          flags.push(`TONNAGE_MISMATCH: Calculated tonnage deviates ${devPct.toFixed(1)}% from declared ${declared} tCO2e (policy limit: ${maximumEvidenceDeviation}%)`);
         }
       }
 
@@ -111,11 +120,14 @@ router.post('/evaluate', requireRoles('PROJECT_PROPONENT'), async (req: Request,
     const {
       confidenceScore,
       riskLevel,
-      autoMintEligible,
-      verifierRequired,
       anomalyFlags,
       explanationReason
     } = scoreResult;
+    const policyConfidenceMet = Number(confidenceScore) >= minimumAiConfidence;
+    const autoMintEligible = Boolean(scoreResult.autoMintEligible) && policyConfidenceMet;
+    const verifierRequired = automaticEscalation
+      ? Boolean(scoreResult.verifierRequired) || !policyConfidenceMet
+      : Boolean(scoreResult.verifierRequired);
 
     const assessmentRecord = {
       bundle_id: bundleId,
@@ -136,7 +148,7 @@ router.post('/evaluate', requireRoles('PROJECT_PROPONENT'), async (req: Request,
     let onChainRiskTxHash = null;
     try {
       const correlationMet = !(anomalyFlags || []).some((f: string) => f.includes('MISMATCH') || f.includes('DEVIATION'));
-      const confidenceMet = confidenceScore >= 85;
+      const confidenceMet = confidenceScore >= minimumAiConfidence;
       onChainRiskTxHash = await RelayerService.recordRiskResultOnChain(
         bundleId,
         correlationMet,

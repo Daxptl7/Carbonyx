@@ -8,11 +8,21 @@ const router = Router();
 // GET /api/marketplace/credits - Catalog of verified carbon credits
 router.get('/credits', requireRoles('CORPORATE_BUYER', 'REGULATOR_AUDITOR'), async (req: Request, res: Response) => {
   try {
-    const { methodology } = req.query;
+    const { scope, ownerAddress } = req.query;
+    const isPortfolio = scope === 'portfolio';
+
+    if (isPortfolio && (typeof ownerAddress !== 'string' || !isAddress(ownerAddress))) {
+      return res.status(400).json({ error: 'A valid ownerAddress is required for portfolio credits' });
+    }
+
     let query = supabase
       .from('carbon_credit_nfts')
       .select('*, projects(*)')
-      .in('status', ['ISSUED', 'TRANSFERRED']);
+      .in('status', isPortfolio ? ['ISSUED', 'TRANSFERRED', 'RETIRED'] : ['ISSUED', 'TRANSFERRED']);
+
+    if (isPortfolio) {
+      query = query.ilike('current_owner', ownerAddress as string);
+    }
 
     const { data: credits, error } = await query.order('created_at', { ascending: false });
 

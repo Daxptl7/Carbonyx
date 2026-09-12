@@ -29,10 +29,10 @@ import { apiFetch, readApiJson } from '../lib/auth';
 interface IssuerStudioProps {
   wallet: WalletState;
   backendUrl: string;
-  onNavigateToExplorer?: () => void;
+  onNavigateToRegistry?: () => void;
 }
 
-export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, onNavigateToExplorer }) => {
+export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, onNavigateToRegistry }) => {
   const [copiedDid, setCopiedDid] = useState(false);
 
   // Form State - Step 1: Project Metadata
@@ -53,7 +53,9 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
   // Stream 1: Financial Capex (Money Spent)
   const [capexSpentUsd, setCapexSpentUsd] = useState<number>(1450000);
   const [capexBreakdown, setCapexBreakdown] = useState('Seedling nursery ($450k), earth prep ($380k), drone lidar seeding ($220k), sensor deployment ($400k)');
-  const [financialReceiptHash, setFinancialReceiptHash] = useState('0x8f4c2e1b9a7d3f5e6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8d0e2f');
+  const [financialReceiptHash, setFinancialReceiptHash] = useState('');
+  const [financialDocument, setFinancialDocument] = useState<{ name: string; type: string; size: number; contentBase64: string } | null>(null);
+  const [isHashingDocument, setIsHashingDocument] = useState(false);
   const [auditorFirm, setAuditorFirm] = useState('KPMG ESG Assurance & BioAudit Group');
 
   // Stream 2: Ground IoT Telemetry
@@ -71,8 +73,12 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
   const [satEvi, setSatEvi] = useState<number>(0.745);
   const [satCanopyCover, setSatCanopyCover] = useState<number>(94.5);
   const [satCloudCover, setSatCloudCover] = useState<number>(1.2);
-  const [satSnapshotHash, setSatSnapshotHash] = useState('0x3a9b1c7e5d8f2a4b6c0e1d3f5a7b9c1e3f5a7b9c1e3f5a7b9c1e3f5a7b9c1e3f');
+  const [satSnapshotHash, setSatSnapshotHash] = useState('');
   const [satTimestamp, setSatTimestamp] = useState<string>(new Date().toISOString());
+  const [satLatitude, setSatLatitude] = useState('');
+  const [satLongitude, setSatLongitude] = useState('');
+  const [satDataSource, setSatDataSource] = useState<'MANUAL_ENTRY' | 'COPERNICUS' | 'DEMO_FALLBACK'>('MANUAL_ENTRY');
+  const [satWarning, setSatWarning] = useState('Enter the project coordinates before requesting Sentinel-2 data.');
 
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -95,34 +101,72 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
     }, 800);
   };
 
+  const sha256Hex = async (value: ArrayBuffer | string) => {
+    const bytes = typeof value === 'string' ? new TextEncoder().encode(value) : value;
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  };
+
+  const handleFinancialDocument = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      alert('Financial evidence must be 4 MB or smaller.');
+      event.target.value = '';
+      return;
+    }
+    setIsHashingDocument(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const hash = await sha256Hex(buffer);
+      const contentBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      setFinancialDocument({ name: file.name, type: file.type || 'application/octet-stream', size: file.size, contentBase64 });
+      setFinancialReceiptHash(`sha256:${hash}`);
+    } catch {
+      alert('Unable to read the selected financial document.');
+      setFinancialDocument(null);
+      setFinancialReceiptHash('');
+    } finally {
+      setIsHashingDocument(false);
+    }
+  };
+
   const handleFetchSatelliteSnapshot = async () => {
+    const latitude = Number(satLatitude);
+    const longitude = Number(satLongitude);
+    if (!satLatitude || !satLongitude || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      setSatWarning('Enter valid latitude (-90 to 90) and longitude (-180 to 180).');
+      return;
+    }
     setIsFetchingSatellite(true);
     try {
-      // Call live /api/satellite/ndvi or simulate
       const res = await apiFetch(`${backendUrl}/api/satellite/ndvi`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          latitude: -9.0,
-          longitude: -70.8,
-          declaredTonnage: 100
+          latitude,
+          longitude,
+          declaredTonnage: claimedTonnage
         })
       });
-      if (res.ok) {
-        const data = await readApiJson<any>(res);
-        setSatNdvi(data.meanNdvi || 0.812);
-        setSatCanopyCover(Number((100 - (data.cloudCoveragePct || 2)).toFixed(1)));
-        setSatCloudCover(data.cloudCoveragePct || 1.2);
-        setSatSnapshotHash(`0xsat_${data.source || 'copernicus'}_${Date.now()}`);
-      } else {
-        setSatNdvi(Number((0.80 + Math.random() * 0.05).toFixed(3)));
-        setSatSnapshotHash(`0xsat_sentinel2_${Date.now()}`);
-      }
-    } catch {
-      setSatNdvi(Number((0.80 + Math.random() * 0.05).toFixed(3)));
-      setSatSnapshotHash(`0xsat_sentinel2_${Date.now()}`);
+      const data = await readApiJson<any>(res);
+      if (!res.ok) throw new Error(data.error || 'Satellite request failed');
+      setSatNdvi(Number(data.meanNdvi));
+      setSatCanopyCover(Number((100 - (data.cloudCoveragePct || 0)).toFixed(1)));
+      setSatCloudCover(Number(data.cloudCoveragePct || 0));
+      setSatTimestamp(data.captureDate || new Date().toISOString());
+      setSatDataSource(data.source === 'copernicus' ? 'COPERNICUS' : 'DEMO_FALLBACK');
+      setSatProvider(data.source === 'copernicus' ? 'Copernicus Sentinel-2 L2A Statistical API' : 'Deterministic demonstration fallback');
+      setSatWarning(data.warning || 'Live Copernicus Sentinel-2 observation received for the supplied coordinates.');
+      setSatSnapshotHash(`sha256:${await sha256Hex(JSON.stringify(data))}`);
+    } catch (error: any) {
+      setSatWarning(error.message || 'Satellite request failed. Enter measurements manually or try again.');
     } finally {
-      setSatTimestamp(new Date().toISOString());
       setIsFetchingSatellite(false);
     }
   };
@@ -132,6 +176,8 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
     setIsSubmitting(true);
 
     try {
+      if (!financialDocument || !financialReceiptHash) throw new Error('Upload a financial evidence document before submission.');
+      if (!satLatitude || !satLongitude) throw new Error('Enter the project latitude and longitude for satellite evidence.');
       // 1. Register Project
       const regRes = await apiFetch(`${backendUrl}/api/projects/register`, {
         method: 'POST',
@@ -159,6 +205,10 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
             projectCapexUsd: capexSpentUsd,
             expenseBreakdown: capexBreakdown,
             invoiceAttestationHash: financialReceiptHash,
+            documentName: financialDocument.name,
+            documentMimeType: financialDocument.type,
+            documentSizeBytes: financialDocument.size,
+            documentContentBase64: financialDocument.contentBase64,
             auditorFirm: auditorFirm,
             timestamp: Date.now()
           }
@@ -185,7 +235,11 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
             canopyCoveragePct: satCanopyCover,
             cloudCoverPct: satCloudCover,
             snapshotHash: satSnapshotHash,
-            snapshotIso: satTimestamp
+            snapshotIso: satTimestamp,
+            latitude: Number(satLatitude),
+            longitude: Number(satLongitude),
+            evidenceSource: satDataSource,
+            sourceWarning: satWarning
           }
         }
       ];
@@ -212,7 +266,7 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
           bundleId: evData.bundle?.bundle_id,
           projectId,
           projectType,
-          declaredTonnage: 100,
+          declaredTonnage: claimedTonnage,
           evidenceItems
         })
       });
@@ -221,13 +275,18 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
         throw new Error(riskData.error || 'Risk evaluation failed');
       }
 
+      const assessment = riskData.assessment || riskData.riskAssessment;
+
       setSubmittedResult({
         projectId,
         name: projectName,
         did: regData.did || `did:carbonyx:${developerWallet.toLowerCase()}`,
         merkleRoot: evData.merkleRoot,
         bundleId: evData.bundle?.bundle_id,
-        confidenceScore: riskData.assessment?.confidence_score || 94
+        confidenceScore: assessment?.confidence_score ?? null,
+        riskLevel: assessment?.risk_level ?? null,
+        anomalyFlags: Array.isArray(assessment?.anomaly_flags) ? assessment.anomaly_flags : [],
+        verifierRequired: Boolean(assessment?.verifier_required)
       });
 
       setSubmissionSuccess(true);
@@ -247,6 +306,13 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
 
   const resetForm = () => {
     setProjectId(`PROJ-AMAZON-${Math.floor(100 + Math.random() * 900)}`);
+    setFinancialDocument(null);
+    setFinancialReceiptHash('');
+    setSatLatitude('');
+    setSatLongitude('');
+    setSatSnapshotHash('');
+    setSatDataSource('MANUAL_ENTRY');
+    setSatWarning('Enter the project coordinates before requesting Sentinel-2 data.');
     setSubmissionSuccess(false);
     setSubmittedResult(null);
   };
@@ -289,8 +355,14 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
 
             <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 space-y-1">
               <div className="text-[10px] text-slate-400 uppercase font-semibold">AI Confidence Score</div>
-              <div className="text-base font-bold text-emerald-400">{submittedResult.confidenceScore}%</div>
-              <div className="text-[10px] text-slate-400">Multi-Source Verified</div>
+              <div className={`text-base font-bold ${submittedResult.riskLevel === 'HIGH' ? 'text-red-400' : submittedResult.riskLevel === 'MEDIUM' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                {submittedResult.confidenceScore === null ? 'Awaiting scan' : `${submittedResult.confidenceScore}%`}
+              </div>
+              <div className="text-[10px] text-slate-400">
+                {submittedResult.riskLevel
+                  ? `${submittedResult.riskLevel} risk · ${submittedResult.anomalyFlags.length} anomaly flag${submittedResult.anomalyFlags.length === 1 ? '' : 's'}`
+                  : 'Risk assessment pending'}
+              </div>
             </div>
           </div>
 
@@ -312,10 +384,10 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
           {/* Action Navigation Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <button
-              onClick={() => onNavigateToExplorer ? onNavigateToExplorer() : null}
+              onClick={() => onNavigateToRegistry ? onNavigateToRegistry() : null}
               className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-sm shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center gap-2"
             >
-              <Globe2 className="w-4 h-4" /> View in Baseline Explorer ➡️
+              <Globe2 className="w-4 h-4" /> View in My Registry ➡️
             </button>
 
             <button
@@ -333,7 +405,7 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-slate-950 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="portal-page-header bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-slate-950 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
@@ -496,13 +568,22 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
                 </div>
 
                 <div>
-                  <label className="text-slate-400 font-semibold">Audit Attestation Receipt Hash</label>
+                  <label className="text-slate-400 font-semibold">Upload Financial Evidence</label>
                   <input
-                    type="text"
-                    value={financialReceiptHash}
-                    onChange={(e) => setFinancialReceiptHash(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-400 font-mono text-[10px] mt-1"
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.csv,.xlsx,.xls,.doc,.docx"
+                    onChange={handleFinancialDocument}
+                    className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-2 text-[10px] text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-emerald-500 file:px-2 file:py-1 file:text-[10px] file:font-bold file:text-slate-950"
                   />
+                  <p className="mt-1 text-[9px] text-slate-500">PDF, image, spreadsheet, or document · maximum 4 MB</p>
+                </div>
+
+                <div>
+                  <label className="text-slate-400 font-semibold">Document SHA-256</label>
+                  <div className="mt-1 min-h-8 truncate rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-2 font-mono text-[9px] text-slate-500">
+                    {isHashingDocument ? 'Hashing uploaded document…' : financialReceiptHash || 'Generated after document upload'}
+                  </div>
+                  {financialDocument && <p className="mt-1 truncate text-[9px] font-semibold text-emerald-600"><FileCheck2 className="mr-1 inline h-3 w-3" />{financialDocument.name} · {(financialDocument.size / 1024).toFixed(1)} KB</p>}
                 </div>
               </div>
             </div>
@@ -575,13 +656,21 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
               </div>
 
               <div className="space-y-2 text-xs">
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-[10px] font-semibold text-slate-400">Latitude
+                    <input type="number" step="0.000001" min="-90" max="90" value={satLatitude} onChange={(e) => { setSatLatitude(e.target.value); setSatDataSource('MANUAL_ENTRY'); }} placeholder="e.g. -9.0000" className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 font-mono text-xs text-slate-900" />
+                  </label>
+                  <label className="text-[10px] font-semibold text-slate-400">Longitude
+                    <input type="number" step="0.000001" min="-180" max="180" value={satLongitude} onChange={(e) => { setSatLongitude(e.target.value); setSatDataSource('MANUAL_ENTRY'); }} placeholder="e.g. -70.8000" className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 font-mono text-xs text-slate-900" />
+                  </label>
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400 font-semibold">Spectral NDVI</span>
                   <input
                     type="number"
                     step="0.005"
                     value={satNdvi}
-                    onChange={(e) => setSatNdvi(Number(e.target.value))}
+                    onChange={(e) => { setSatNdvi(Number(e.target.value)); setSatDataSource('MANUAL_ENTRY'); }}
                     className="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-sky-300 font-mono text-xs w-24 text-right font-bold"
                   />
                 </div>
@@ -592,23 +681,25 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
                     type="number"
                     step="0.5"
                     value={satCanopyCover}
-                    onChange={(e) => setSatCanopyCover(Number(e.target.value))}
+                    onChange={(e) => { setSatCanopyCover(Number(e.target.value)); setSatDataSource('MANUAL_ENTRY'); }}
                     className="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-white font-mono text-xs w-24 text-right"
                   />
                 </div>
 
-                <div className="text-[10px] text-slate-500 font-mono truncate pt-1">
-                  Snapshot: {satSnapshotHash.slice(0, 18)}...
+                <div className="rounded-lg border border-slate-700 p-2 text-[9px] leading-4 text-slate-500">
+                  <div className="font-bold text-slate-700">Source: {satDataSource.replace(/_/g, ' ')}</div>
+                  <div>{satWarning}</div>
+                  {satSnapshotHash && <div className="truncate font-mono">Snapshot: {satSnapshotHash}</div>}
                 </div>
 
                 <button
                   type="button"
                   onClick={handleFetchSatelliteSnapshot}
-                  disabled={isFetchingSatellite}
+                  disabled={isFetchingSatellite || !satLatitude || !satLongitude}
                   className="w-full mt-2 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
                 >
                   {isFetchingSatellite ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Satellite className="w-3.5 h-3.5" />}
-                  {isFetchingSatellite ? 'Calling Satellite API...' : '🛰️ Fetch Satellite Snapshot'}
+                  {isFetchingSatellite ? 'Calling Satellite API...' : 'Fetch for these coordinates'}
                 </button>
               </div>
             </div>

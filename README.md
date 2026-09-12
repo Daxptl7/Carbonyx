@@ -156,8 +156,10 @@ Ask the team lead for the `.env` credentials and skip to [Environment Variables 
      1. `supabase/migrations/20260912000000_init_schema.sql`
      2. `supabase/migrations/20260912010000_app_users_rbac.sql`
      3. `supabase/migrations/20260912020000_phase3_rbac_integration.sql`
+     4. `supabase/migrations/20260912030000_project_registry_objections.sql`
+     5. `supabase/migrations/20260912040000_regulator_oversight.sql`
    - Paste each file into the SQL Editor and click **Run**.
-   - Verify that all 9 tables are created in the **Table Editor**:
+   - Verify that all 13 tables are created in the **Table Editor**:
      1. `projects`
      2. `evidence_bundles`
      3. `evidence_items`
@@ -167,6 +169,10 @@ Ask the team lead for the `.env` credentials and skip to [Environment Variables 
      7. `escrows`
      8. `disputes`
      9. `app_users`
+     10. `project_objections`
+     11. `regulatory_actions`
+     12. `regulator_policies`
+     13. `regulator_watchlist`
    - Verify that the 2 storage buckets exist under **Storage**:
      1. `evidence-vault` (Private)
      2. `certificates` (Public)

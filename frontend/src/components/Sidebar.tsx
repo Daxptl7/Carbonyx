@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   BriefcaseBusiness,
+  Database,
   Globe2,
   LayoutDashboard,
   LucideIcon,
@@ -15,6 +16,7 @@ import { AuthUser } from '../lib/auth';
 export type TabKey =
   | 'overview'
   | 'issuer'
+  | 'my-registry'
   | 'baseline'
   | 'verifier'
   | 'marketplace'
@@ -32,6 +34,7 @@ export interface SidebarNavItem {
 export const defaultCarbonyxNavItems: SidebarNavItem[] = [
   { id: 'overview', label: 'Overview', description: 'Network activity and controls', icon: LayoutDashboard },
   { id: 'issuer', label: 'Project Studio', description: 'Register and submit evidence', icon: Sprout },
+  { id: 'my-registry', label: 'My Registry', description: 'Projects, objections and revisions', icon: Database },
   { id: 'baseline', label: 'Baseline Registry', description: 'Observe and inspect projects', icon: Globe2 },
   { id: 'verifier', label: 'Verifier Portal', description: 'Stake and review anomalies', icon: ShieldCheck },
   { id: 'marketplace', label: 'Marketplace', description: 'Discover and acquire credits', icon: Store },

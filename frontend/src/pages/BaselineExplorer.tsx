@@ -15,7 +15,8 @@ import {
   Check, 
   ExternalLink,
   RefreshCw,
-  Filter
+  Filter,
+  Cpu
 } from 'lucide-react';
 import { WalletState } from '../lib/web3';
 import { apiFetch, readApiJson } from '../lib/auth';
@@ -35,6 +36,7 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMethodology, setSelectedMethodology] = useState('ALL');
+  const [selectedRisk, setSelectedRisk] = useState('ALL');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Dispute / Challenge Modal State
@@ -83,7 +85,7 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({
         body: JSON.stringify({
           projectId: activeProjectForDispute.project.project_id,
           bundleId: activeProjectForDispute.bundle?.bundle_id,
-          challengerAddress: wallet.address || '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+          challengerAddress: wallet.address || undefined,
           category: challengeCategory,
           reason: challengeReason || 'Suspicious variance detected in baseline telemetry.'
         })
@@ -111,13 +113,22 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({
       p.did?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesType = selectedMethodology === 'ALL' || p.project_type === selectedMethodology;
-    return matchesSearch && matchesType;
+    const riskLevel = item.risk?.risk_level || 'UNSCANNED';
+    const matchesRisk = selectedRisk === 'ALL' || riskLevel === selectedRisk;
+    return matchesSearch && matchesType && matchesRisk;
   });
+
+  const scannedProjects = projects.filter((item) => item.risk?.risk_level).length;
+  const flaggedProjects = projects.filter((item) => {
+    const flags = item.risk?.anomaly_flags;
+    return (Array.isArray(flags) && flags.length > 0) || ['MEDIUM', 'HIGH'].includes(item.risk?.risk_level);
+  }).length;
+  const verifierRoutedProjects = projects.filter((item) => item.risk?.verifier_required).length;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-slate-950 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="portal-page-header bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-slate-950 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
@@ -129,7 +140,7 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({
             Baseline Explorer & Public Registry
           </h1>
           <p className="text-slate-400 text-sm mt-1 max-w-2xl">
-            Audit public project baselines, inspect multi-source telemetry Merkle proofs (Financials, IoT, Sentinel-2), and submit community challenges during active 14-day observation windows.
+            Audit public project baselines, inspect multi-source telemetry Merkle proofs and review explainable AI anomaly results before a baseline can proceed to issuance.
           </p>
         </div>
 
@@ -141,6 +152,31 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh Registry
         </button>
+      </div>
+
+      {/* Baseline anomaly monitor summary */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="metric-summary-card rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+            <Cpu className="h-3.5 w-3.5" /> AI scans completed
+          </div>
+          <div className="mt-1 text-2xl font-black text-white">{scannedProjects}<span className="text-sm font-medium text-slate-500"> / {projects.length}</span></div>
+          <p className="mt-1 text-[11px] text-slate-400">Isolation Forest, Z-score and domain-rule ensemble</p>
+        </div>
+        <div className="metric-summary-card rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+            <AlertTriangle className="h-3.5 w-3.5" /> Baselines with anomalies
+          </div>
+          <div className="mt-1 text-2xl font-black text-white">{flaggedProjects}</div>
+          <p className="mt-1 text-[11px] text-slate-400">Flagged by telemetry variance or cross-source mismatch</p>
+        </div>
+        <div className="metric-summary-card rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-sky-400">
+            <ShieldCheck className="h-3.5 w-3.5" /> Human review required
+          </div>
+          <div className="mt-1 text-2xl font-black text-white">{verifierRoutedProjects}</div>
+          <p className="mt-1 text-[11px] text-slate-400">Automatically routed to the staked verifier queue</p>
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -168,6 +204,18 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({
             <option value="PEATLAND_RESTORATION">Peatland Rewetting</option>
             <option value="MANGROVE_BLUE_CARBON">Blue Carbon</option>
             <option value="SOIL_CARBON">Agro-Soil Carbon</option>
+          </select>
+          <select
+            value={selectedRisk}
+            onChange={(e) => setSelectedRisk(e.target.value)}
+            aria-label="Filter by anomaly risk"
+            className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500"
+          >
+            <option value="ALL">All Risk Levels</option>
+            <option value="HIGH">High Risk</option>
+            <option value="MEDIUM">Medium Risk</option>
+            <option value="LOW">Low Risk</option>
+            <option value="UNSCANNED">Awaiting Scan</option>
           </select>
         </div>
       </div>
@@ -198,12 +246,55 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({
             const iotItem = items.find((i: any) => i.source_type === 'IOT_SENSOR' || i.payload?.co2FluxPpm);
             const satItem = items.find((i: any) => i.source_type === 'SATELLITE_NDVI' || i.payload?.meanNdvi);
 
-            const isChallenged = b?.status === 'CHALLENGED' || r?.risk_level === 'HIGH';
+            const rawConfidenceScore = r?.confidence_score;
+            const confidenceScore = rawConfidenceScore !== null
+              && rawConfidenceScore !== undefined
+              && Number.isFinite(Number(rawConfidenceScore))
+              ? Number(r.confidence_score)
+              : null;
+            const riskLevel = ['LOW', 'MEDIUM', 'HIGH'].includes(r?.risk_level)
+              ? r.risk_level as 'LOW' | 'MEDIUM' | 'HIGH'
+              : null;
+            const anomalyFlags: string[] = Array.isArray(r?.anomaly_flags) ? r.anomaly_flags : [];
+            const scanComplete = confidenceScore !== null && riskLevel !== null;
+            const isCommunityChallenged = b?.status === 'CHALLENGED'
+              || anomalyFlags.some((flag) => flag.startsWith('COMMUNITY_CHALLENGE'));
+            const riskTheme = riskLevel === 'HIGH'
+              ? {
+                  border: 'border-red-500/30',
+                  surface: 'bg-red-500/5',
+                  text: 'text-red-400',
+                  badge: 'border-red-500/30 bg-red-500/15 text-red-300',
+                  bar: 'bg-red-500'
+                }
+              : riskLevel === 'MEDIUM'
+                ? {
+                    border: 'border-amber-500/30',
+                    surface: 'bg-amber-500/5',
+                    text: 'text-amber-400',
+                    badge: 'border-amber-500/30 bg-amber-500/15 text-amber-300',
+                    bar: 'bg-amber-500'
+                  }
+                : riskLevel === 'LOW'
+                  ? {
+                      border: 'border-emerald-500/30',
+                      surface: 'bg-emerald-500/5',
+                      text: 'text-emerald-400',
+                      badge: 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300',
+                      bar: 'bg-emerald-500'
+                    }
+                  : {
+                      border: 'border-slate-700',
+                      surface: 'bg-slate-950/50',
+                      text: 'text-slate-400',
+                      badge: 'border-slate-700 bg-slate-800 text-slate-300',
+                      bar: 'bg-slate-600'
+                    };
 
             return (
               <div 
                 key={p.project_id}
-                className="bg-slate-900/70 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-6 backdrop-blur-md space-y-5 transition-all shadow-lg"
+                className="baseline-project-card bg-white border border-slate-300 hover:border-slate-400 rounded-2xl p-6 space-y-5 transition-all shadow-lg"
               >
                 {/* Card Top: Title, Status, and 14-Day Timer */}
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
@@ -236,9 +327,13 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({
 
                   {/* 14-Day Challenge Window Status Badge */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5">
-                    {isChallenged ? (
+                    {isCommunityChallenged ? (
                       <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 animate-pulse">
                         <AlertTriangle className="w-4 h-4 text-amber-400" /> UNDER COMMUNITY DISPUTE
+                      </span>
+                    ) : riskLevel === 'HIGH' ? (
+                      <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4 text-red-400" /> AI ANOMALY ESCALATED
                       </span>
                     ) : cw?.isActive ? (
                       <span className="px-3 py-1.5 rounded-xl text-xs font-bold font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
@@ -316,6 +411,101 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({
                   </div>
                 </div>
 
+                {/* Explainable AI baseline anomaly detector */}
+                <div className={`baseline-anomaly-panel rounded-xl border ${riskTheme.border} ${riskTheme.surface} overflow-hidden`}>
+                  <div className="flex flex-col gap-3 border-b border-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-9 w-9 items-center justify-center rounded-lg border ${riskTheme.border} bg-slate-950/70 ${riskTheme.text}`}>
+                        <Cpu className="h-4.5 w-4.5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">AI Baseline Anomaly Detector</h3>
+                        <p className="text-[10px] text-slate-400">Isolation Forest + Z-score + cross-source correlation</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${riskTheme.badge}`}>
+                        {scanComplete ? `${riskLevel} RISK` : 'AWAITING SCAN'}
+                      </span>
+                      {scanComplete && (
+                        <span className="rounded-full border border-slate-700 bg-slate-950/70 px-2.5 py-1 text-[10px] font-mono text-slate-300">
+                          {anomalyFlags.length} {anomalyFlags.length === 1 ? 'flag' : 'flags'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-[190px_1fr]">
+                    <div className="rounded-lg border border-white/5 bg-slate-950/50 p-3">
+                      <div className="flex items-end justify-between">
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Confidence score</div>
+                          <div className={`mt-1 text-3xl font-black font-mono ${riskTheme.text}`}>
+                            {confidenceScore === null ? '—' : `${confidenceScore}%`}
+                          </div>
+                        </div>
+                        {scanComplete && (
+                          riskLevel === 'LOW'
+                            ? <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+                            : <AlertTriangle className={`h-6 w-6 ${riskTheme.text}`} />
+                        )}
+                      </div>
+                      <div
+                        className="baseline-progress-track mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800"
+                        role="progressbar"
+                        aria-label="AI confidence score"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={confidenceScore ?? 0}
+                      >
+                        <div
+                          className={`h-full rounded-full transition-all ${riskTheme.bar}`}
+                          style={{ width: `${confidenceScore ?? 0}%` }}
+                        />
+                      </div>
+                      <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+                        {scanComplete
+                          ? r.verifier_required
+                            ? 'Policy gate paused; staked verifier review is required.'
+                            : 'Policy threshold met; no anomaly escalation required.'
+                          : 'Submit and anchor multi-source evidence to start the scan.'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Detector result</div>
+                        {!scanComplete ? (
+                          <div className="rounded-lg border border-dashed border-slate-700 bg-slate-950/30 px-3 py-2.5 text-xs text-slate-400">
+                            No risk assessment has been recorded for this baseline yet.
+                          </div>
+                        ) : anomalyFlags.length === 0 ? (
+                          <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5 text-xs text-emerald-300">
+                            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                            No anomaly flags raised across the submitted evidence streams.
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {anomalyFlags.map((flag, index) => (
+                              <div key={`${flag}-${index}`} className="flex items-start gap-2 rounded-lg border border-red-500/15 bg-red-500/5 px-3 py-2 text-[11px] font-mono text-red-200">
+                                <AlertTriangle className="mt-0.5 h-3 w-3 flex-shrink-0 text-red-400" />
+                                <span>{flag}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {scanComplete && (
+                        <div className="rounded-lg border border-white/5 bg-slate-950/40 px-3 py-2.5 text-xs leading-relaxed text-slate-300">
+                          <span className={`font-bold ${riskTheme.text}`}>Explainable AI: </span>
+                          {r.explanation_reason || 'The evidence bundle was scored, but no explanation was recorded.'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Merkle Root & Cryptographic Anchor */}
                 <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl px-4 py-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2 font-mono text-slate-400">
@@ -328,7 +518,7 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({
 
                   <div className="flex items-center gap-3 text-slate-400">
                     <span>Claimed: <strong className="text-white">{p.claimed_annual_tonnage || 50000} tCO2e/yr</strong></span>
-                    <span>Confidence: <strong className="text-emerald-400">{r?.confidence_score || 94}%</strong></span>
+                    <span>Confidence: <strong className={riskTheme.text}>{confidenceScore === null ? 'Not scanned' : `${confidenceScore}%`}</strong></span>
                   </div>
                 </div>
               </div>
