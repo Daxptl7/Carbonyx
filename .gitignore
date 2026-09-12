@@ -31,3 +31,6 @@ venv/
 
 # Misc
 .DS_Store
+
+# Foundry temp files
+contracts/foundry-pp/
