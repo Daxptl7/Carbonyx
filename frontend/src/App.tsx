@@ -18,7 +18,7 @@ export default function App() {
   });
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const backendUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000';
+  const backendUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5005';
 
   // Check if wallet was already connected
   useEffect(() => {
@@ -244,7 +244,7 @@ export default function App() {
 
         {activeTab === 'issuer' && (
           <div className="max-w-7xl mx-auto p-6 md:p-8">
-            <IssuerStudio wallet={wallet} backendUrl={backendUrl} />
+            <IssuerStudio wallet={wallet} backendUrl={backendUrl} onNavigateTab={setActiveTab} />
           </div>
         )}
 
