@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Sparkles, Database, Layers, CheckCircle2, AlertCircle, LogOut, Wallet, UserCheck, ShoppingBag, Search } from 'lucide-react';
+import { Shield, Sparkles, Database, Layers, CheckCircle2, AlertCircle, LogOut, Wallet } from 'lucide-react';
 import { connectMetaMask, truncateAddress, WalletState } from './lib/web3';
 import { IssuerStudio } from './pages/IssuerStudio';
+import VerifierPortal from './pages/VerifierPortal';
+import Marketplace from './pages/Marketplace';
+import AuditorExplorer from './pages/AuditorExplorer';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'issuer' | 'verifier' | 'marketplace' | 'explorer'>('issuer');
@@ -14,8 +17,9 @@ export default function App() {
   });
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const backendUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000';
+  const backendUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000';
 
+  // Check if wallet was already connected
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
       const ethereum = (window as any).ethereum;
@@ -148,56 +152,12 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Content Area */}
+      {/* Main Tab Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8">
-        {activeTab === 'issuer' && (
-          <IssuerStudio wallet={wallet} backendUrl={backendUrl} />
-        )}
-
-        {activeTab === 'verifier' && (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center max-w-2xl mx-auto space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center mx-auto">
-              <UserCheck className="w-7 h-7" />
-            </div>
-            <h2 className="text-xl font-bold text-white">Verifier Staking Portal</h2>
-            <p className="text-sm text-slate-400">
-              Assigned verifiers audit anomalous low-confidence carbon credit bundles with 50% economic staking collateral slashing.
-            </p>
-            <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              Slated for Phase C3 Deployment
-            </span>
-          </div>
-        )}
-
-        {activeTab === 'marketplace' && (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center max-w-2xl mx-auto space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
-              <ShoppingBag className="w-7 h-7" />
-            </div>
-            <h2 className="text-xl font-bold text-white">Verified Offset Marketplace & Escrow</h2>
-            <p className="text-sm text-slate-400">
-              Browse cryptographically verified ERC-721 carbon certificates with atomic custodial escrow settlement.
-            </p>
-            <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              Slated for Phase C3/C4 Deployment
-            </span>
-          </div>
-        )}
-
-        {activeTab === 'explorer' && (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center max-w-2xl mx-auto space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mx-auto">
-              <Search className="w-7 h-7" />
-            </div>
-            <h2 className="text-xl font-bold text-white">Auditor Cryptographic Provenance Explorer</h2>
-            <p className="text-sm text-slate-400">
-              Verify Merkle proofs, historical emissions offsets, and on-chain lifecycle burn states across all issued certificates.
-            </p>
-            <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              Slated for Phase C4 Deployment
-            </span>
-          </div>
-        )}
+        {activeTab === 'issuer' && <IssuerStudio wallet={wallet} backendUrl={backendUrl} />}
+        {activeTab === 'verifier' && <VerifierPortal walletAddress={wallet.address} />}
+        {activeTab === 'marketplace' && <Marketplace walletAddress={wallet.address} />}
+        {activeTab === 'explorer' && <AuditorExplorer />}
       </main>
 
       {/* Footer */}

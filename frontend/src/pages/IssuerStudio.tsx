@@ -602,3 +602,5 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl }
     </div>
   );
 };
+
+export default IssuerStudio;

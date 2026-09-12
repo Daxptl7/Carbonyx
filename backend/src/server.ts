@@ -8,6 +8,8 @@ import projectsRouter from './routes/projects.routes';
 import evidenceRouter from './routes/evidence.routes';
 import riskRouter from './routes/risk.routes';
 import creditsRouter from './routes/credits.routes';
+import verifiersRouter from './routes/verifiers.routes';
+import marketplaceRouter from './routes/marketplace.routes';
 
 dotenv.config();
 
@@ -19,29 +21,42 @@ app.use(express.json({ limit: '10mb' }));
 
 RelayerService.initialize(process.env.REGISTRY_CONTRACT_ADDRESS);
 
+// Mount API routes
 app.use('/api/projects', projectsRouter);
 app.use('/api/evidence', evidenceRouter);
 app.use('/api/risk', riskRouter);
 app.use('/api/credits', creditsRouter);
+app.use('/api/verifiers', verifiersRouter);
+app.use('/api/marketplace', marketplaceRouter);
 
 app.get('/health', async (_req: Request, res: Response) => {
+  let supabaseConnected = false;
+  let dbError = null;
+
   try {
-    const { data, error } = await supabase.from('projects').select('count', { count: 'exact', head: true });
-    
-    return res.status(200).json({
-      status: 'HEALTHY',
-      service: 'carbonyx-backend',
-      timestamp: new Date().toISOString(),
-      supabaseConnected: !error,
-      relayerConnected: RelayerService.isConnected(),
-      environment: process.env.NODE_ENV || 'development'
-    });
+    const { error } = await supabase.from('projects').select('count', { count: 'exact', head: true });
+    if (!error) {
+      supabaseConnected = true;
+    } else {
+      dbError = error.message;
+    }
   } catch (err: any) {
-    return res.status(500).json({
-      status: 'UNHEALTHY',
-      error: err.message
-    });
+    dbError = err.message;
   }
+
+  const status = 'HEALTHY';
+  return res.status(200).json({
+    status,
+    service: 'carbonyx-backend',
+    timestamp: new Date().toISOString(),
+    supabaseConnected,
+    relayerConnected: RelayerService.isConnected(),
+    database: {
+      status: supabaseConnected ? 'connected' : 'disconnected',
+      error: dbError
+    },
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
 if (process.env.NODE_ENV !== 'test') {

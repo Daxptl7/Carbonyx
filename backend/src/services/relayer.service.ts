@@ -1,9 +1,10 @@
 import { ethers } from 'ethers';
 import dotenv from 'dotenv';
+import { CryptographicService } from './cryptographic.service';
 dotenv.config();
 
 const REGISTRY_ABI = [
-  'function registerProject(bytes32 projectId, string calldata did, bytes32 kycHash, uint256 challengeDuration) external',
+  'function registerProject(bytes32 projectId, string calldata did, bytes32 kycHash, uint256 challengeDuration) external returns (bytes32)',
   'function commitEvidenceBundle(bytes32 bundleId, bytes32 projectId, bytes32 merkleRoot) external',
   'function recordRiskResult(bytes32 bundleId, bool correlationMet, bool confidenceMet, bool verifierRequired) external',
   'function mintCredit(bytes32 bundleId, uint256 co2Tonnage, uint16 vintageYear) external returns (uint256 tokenId)'
@@ -34,12 +35,18 @@ export class RelayerService {
     return this.provider !== null && this.wallet !== null;
   }
 
-  public static async registerProjectOnChain(projectId: string, did: string, kycHash: string): Promise<string> {
+  public static async registerProjectOnChain(
+    projectId: string,
+    did: string,
+    kycHash: string = '0x' + '0'.repeat(64),
+    challengeDuration: number = 0
+  ): Promise<string> {
     if (!this.registryContract) {
       return `0xmock_reg_tx_${Date.now()}`;
     }
     try {
-      const tx = await this.registryContract.registerProject(projectId, did, kycHash, 0);
+      const b32 = CryptographicService.toBytes32(projectId);
+      const tx = await this.registryContract.registerProject(b32, did, kycHash, challengeDuration);
       const receipt = await tx.wait();
       return receipt.hash;
     } catch (err: any) {
@@ -48,12 +55,22 @@ export class RelayerService {
     }
   }
 
-  public static async commitEvidenceBundleOnChain(bundleId: string, projectId: string, merkleRoot: string): Promise<string> {
+  public static async commitEvidenceBundleOnChain(
+    bundleId: string,
+    projectId: string,
+    merkleRoot: string
+  ): Promise<string> {
     if (!this.registryContract) {
       return `0xmock_commit_tx_${Date.now()}`;
     }
     try {
-      const tx = await this.registryContract.commitEvidenceBundle(bundleId, projectId, merkleRoot);
+      const bBundleId = CryptographicService.toBytes32(bundleId);
+      const bProjId = CryptographicService.toBytes32(projectId);
+      const bRoot = merkleRoot.startsWith('0x') && merkleRoot.length === 66
+        ? merkleRoot
+        : CryptographicService.toBytes32(merkleRoot);
+
+      const tx = await this.registryContract.commitEvidenceBundle(bBundleId, bProjId, bRoot);
       const receipt = await tx.wait();
       return receipt.hash;
     } catch (err: any) {
@@ -72,7 +89,13 @@ export class RelayerService {
       return `0xmock_risk_tx_${Date.now()}`;
     }
     try {
-      const tx = await this.registryContract.recordRiskResult(bundleId, correlationMet, confidenceMet, verifierRequired);
+      const bBundleId = CryptographicService.toBytes32(bundleId);
+      const tx = await this.registryContract.recordRiskResult(
+        bBundleId,
+        correlationMet,
+        confidenceMet,
+        verifierRequired
+      );
       const receipt = await tx.wait();
       return receipt.hash;
     } catch (err: any) {
@@ -81,12 +104,17 @@ export class RelayerService {
     }
   }
 
-  public static async mintCreditOnChain(bundleId: string, tonnage: number, vintage: number): Promise<{ txHash: string; tokenId: number }> {
+  public static async mintCreditOnChain(
+    bundleId: string,
+    tonnage: number,
+    vintage: number = 2026
+  ): Promise<{ txHash: string; tokenId: number }> {
     if (!this.registryContract) {
       return { txHash: `0xmock_mint_tx_${Date.now()}`, tokenId: Math.floor(Math.random() * 1000) + 1 };
     }
     try {
-      const tx = await this.registryContract.mintCredit(bundleId, tonnage, vintage);
+      const bBundleId = CryptographicService.toBytes32(bundleId);
+      const tx = await this.registryContract.mintCredit(bBundleId, Math.floor(tonnage), vintage);
       const receipt = await tx.wait();
       return { txHash: receipt.hash, tokenId: 1 };
     } catch (err: any) {
@@ -94,4 +122,10 @@ export class RelayerService {
       return { txHash: `0xsimulated_mint_tx_${Date.now()}`, tokenId: 1 };
     }
   }
+
+  // Aliases for compatibility
+  public static registerProject = RelayerService.registerProjectOnChain;
+  public static commitEvidenceBundle = RelayerService.commitEvidenceBundleOnChain;
+  public static recordRiskResult = RelayerService.recordRiskResultOnChain;
+  public static mintCredit = RelayerService.mintCreditOnChain;
 }
