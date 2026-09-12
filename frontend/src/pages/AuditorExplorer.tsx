@@ -30,8 +30,10 @@ export default function AuditorExplorer() {
     <div className="space-y-8 text-left w-full max-w-6xl mx-auto">
       {/* Top Banner */}
       <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass">
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <Database className="w-5 h-5 text-[#06B6D4]" />
+        <h2 className="text-xl font-bold flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-[#15ed48]">
+            <Database className="h-5 w-5" />
+          </span>
           End-to-End Cryptographic Provenance Explorer
         </h2>
         <p className="text-sm text-slate-400 mt-1">
@@ -45,7 +47,7 @@ export default function AuditorExplorer() {
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-2">
-            <div className="w-8 h-8 rounded-lg bg-[#10B981]/20 text-[#10B981] flex items-center justify-center font-mono font-bold text-xs">
+            <div className="w-8 h-8 rounded-lg bg-[#008a05]/20 text-[#008a05] flex items-center justify-center font-mono font-bold text-xs">
               01
             </div>
             <div className="font-bold text-sm text-white">Project DID</div>
@@ -55,7 +57,7 @@ export default function AuditorExplorer() {
           </div>
 
           <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-2">
-            <div className="w-8 h-8 rounded-lg bg-[#06B6D4]/20 text-[#06B6D4] flex items-center justify-center font-mono font-bold text-xs">
+            <div className="w-8 h-8 rounded-lg bg-[#00a699]/20 text-[#00a699] flex items-center justify-center font-mono font-bold text-xs">
               02
             </div>
             <div className="font-bold text-sm text-white">Merkle Tree</div>
@@ -109,7 +111,7 @@ export default function AuditorExplorer() {
                   Verified
                 </span>
               </div>
-              <div className="text-xs font-mono text-[#06B6D4] truncate">
+              <div className="text-xs font-mono text-[#00a699] truncate">
                 {contract.address}
               </div>
               <p className="text-[11px] text-slate-400">

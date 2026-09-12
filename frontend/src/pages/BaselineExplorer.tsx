@@ -18,13 +18,19 @@ import {
   Filter
 } from 'lucide-react';
 import { WalletState } from '../lib/web3';
+import { apiFetch, readApiJson } from '../lib/auth';
 
 interface BaselineExplorerProps {
   wallet: WalletState;
   backendUrl: string;
+  canChallenge?: boolean;
 }
 
-export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({ wallet, backendUrl }) => {
+export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({
+  wallet,
+  backendUrl,
+  canChallenge = false
+}) => {
   const [projects, setProjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,8 +46,8 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({ wallet, back
   const fetchBaselineProjects = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${backendUrl}/api/projects/baseline-explorer`);
-      const data = await response.json();
+      const response = await apiFetch(`${backendUrl}/api/projects/baseline-explorer`);
+      const data = await readApiJson<any>(response);
       if (response.ok) {
         setProjects(data.projects || []);
       }
@@ -71,7 +77,7 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({ wallet, back
     if (!activeProjectForDispute) return;
     setIsSubmittingChallenge(true);
     try {
-      const response = await fetch(`${backendUrl}/api/projects/challenge`, {
+      const response = await apiFetch(`${backendUrl}/api/projects/challenge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -87,7 +93,7 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({ wallet, back
         setActiveProjectForDispute(null);
         fetchBaselineProjects();
       } else {
-        const data = await response.json();
+        const data = await readApiJson<any>(response);
         alert(data.error || 'Challenge submission failed');
       }
     } catch (err: any) {
@@ -245,12 +251,14 @@ export const BaselineExplorer: React.FC<BaselineExplorerProps> = ({ wallet, back
                       </span>
                     )}
 
-                    <button
-                      onClick={() => handleOpenChallenge(item)}
-                      className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 transition-all"
-                    >
-                      <Flag className="w-3.5 h-3.5" /> Challenge Baseline
-                    </button>
+                    {canChallenge && (
+                      <button
+                        onClick={() => handleOpenChallenge(item)}
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 transition-all"
+                      >
+                        <Flag className="w-3.5 h-3.5" /> Challenge Baseline
+                      </button>
+                    )}
                   </div>
                 </div>
 

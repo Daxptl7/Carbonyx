@@ -7,6 +7,19 @@ interface HomePageProps {
   onNavigateTab: (tab: 'issuer' | 'verifier' | 'marketplace' | 'explorer') => void;
 }
 
+const HERO_SLIDES = [
+  {
+    src: '/image.png',
+    alt: 'Afforestation & Nature-Based Telemetry Canopy',
+    label: 'Feed 01 • Satellite Afforestation Canopy',
+  },
+  {
+    src: '/image copy.png',
+    alt: 'Rainforest Canopy & High-Density Biomass',
+    label: 'Feed 02 • Rainforest Biomass Telemetry',
+  },
+];
+
 export const HomePage: React.FC<HomePageProps> = ({
   wallet,
   onConnectWallet,
@@ -15,6 +28,26 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [activePersona, setActivePersona] = useState<string>('all');
   const [terminalStep, setTerminalStep] = useState<number>(6);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const [currentSlide, setCurrentSlide] = useState<number>(0);
+  const [prevSlide, setPrevSlide] = useState<number | null>(null);
+
+  useEffect(() => {
+    const slideTimer = setInterval(() => {
+      setPrevSlide(currentSlide);
+      setCurrentSlide((curr) => (curr + 1) % HERO_SLIDES.length);
+    }, 6000);
+
+    return () => clearInterval(slideTimer);
+  }, [currentSlide]);
+
+  useEffect(() => {
+    if (prevSlide !== null) {
+      const resetTimer = setTimeout(() => {
+        setPrevSlide(null);
+      }, 1100);
+      return () => clearTimeout(resetTimer);
+    }
+  }, [prevSlide]);
 
   const handleReplayTerminal = () => {
     setIsStreaming(true);
@@ -44,25 +77,44 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   return (
     <div className="w-full bg-white font-body-md text-slate-900 antialiased selection:bg-primary selection:text-white">
-      {/* ==================== HERO SECTION (XPANSIV CELESTIAL ATMOSPHERE) ==================== */}
-      <section className="relative w-full overflow-hidden bg-gradient-to-b from-[#02041A] via-[#030919] to-[#06122E] pt-24 pb-36 px-6">
-        {/* Celestial glowing planetary horizon curve (Xpansiv signature) with subtle breathing animation */}
-        <div className="absolute bottom-[-180px] left-1/2 -translate-x-1/2 w-[1600px] h-[460px] pointer-events-none rounded-[100%] border-t border-[#00D2FF]/60 shadow-[0_-25px_120px_rgba(0,210,255,0.45),inset_0_20px_80px_rgba(0,71,255,0.5)] bg-gradient-to-t from-transparent via-[#0047FF]/10 to-[#00D2FF]/20 animate-horizon-pulse" />
-        
-        {/* Ambient celestial aurora glow */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-gradient-to-tr from-[#0047FF]/25 via-[#00D2FF]/20 to-transparent blur-[160px] pointer-events-none rounded-full animate-aurora-glow" />
+      {/* ==================== HERO SECTION ==================== */}
+      <section id="home" className="relative flex min-h-screen min-h-[100dvh] w-full items-center justify-center overflow-hidden bg-slate-950 px-6 pb-28 pt-36 sm:pt-44 md:pt-48">
+        {/* Continuous Background Slide Carousel (Slides to left, next arrives from right) */}
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none select-none">
+          {HERO_SLIDES.map((slide, idx) => {
+            const isActive = idx === currentSlide;
+            const isExiting = idx === prevSlide;
 
-        <div className="relative max-w-5xl mx-auto flex flex-col items-center text-center z-10">
-          {/* Tagline Pill (Landing Entrance) */}
-          <div className="animate-fade-in-up inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-white/[0.08] border border-white/25 shadow-lg mb-8 backdrop-blur-md transition-all hover:bg-white/15 hover:border-white/40">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00D2FF] opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00D2FF]" />
-            </span>
-            <span className="font-mono-proof text-xs !text-white uppercase tracking-widest font-bold" style={{ color: '#ffffff' }}>
-              The Verifiable Protocol For High-Integrity Carbon Offsets
-            </span>
-          </div>
+            let positionClass = 'translate-x-full z-0 opacity-100';
+            let transitionClass = 'transition-none';
+
+            if (isActive) {
+              positionClass = 'translate-x-0 z-10 opacity-100';
+              transitionClass = 'transition-transform duration-1000 ease-in-out';
+            } else if (isExiting) {
+              positionClass = '-translate-x-full z-10 opacity-100';
+              transitionClass = 'transition-transform duration-1000 ease-in-out';
+            }
+
+            return (
+              <div
+                key={slide.src}
+                className={`absolute inset-0 w-full h-full will-change-transform ${positionClass} ${transitionClass}`}
+              >
+                <img
+                  src={slide.src}
+                  alt={slide.alt}
+                  className="w-full h-full object-cover object-center brightness-90"
+                />
+              </div>
+            );
+          })}
+
+          {/* Dark gradient vignette overlay for optimal typography contrast */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/55 to-black/85 z-20 pointer-events-none" />
+        </div>
+
+        <div className="relative max-w-5xl mx-auto flex flex-col items-center text-center z-10 pt-4 sm:pt-8 md:pt-12">
 
           {/* Headline (Landing Entrance - Stagger 1) */}
           <h1 className="animate-fade-in-up animation-delay-100 font-display-hero text-4xl sm:text-5xl md:text-6xl font-bold text-white tracking-tight leading-[1.15] mb-6">
@@ -82,7 +134,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             {wallet.isConnected ? (
               <button
                 onClick={() => onNavigateTab('issuer')}
-                className="group inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full bg-[#0047FF] hover:bg-[#0038CC] text-white font-label-lg text-sm font-semibold shadow-lg shadow-blue-600/40 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
+                className="group inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full bg-[#15ed48] hover:bg-[#12d23f] text-slate-950 font-label-lg text-sm font-bold shadow-lg shadow-emerald-500/30 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
               >
                 <span>Launch Issuer Studio</span>
                 <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
@@ -90,7 +142,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             ) : (
               <button
                 onClick={onConnectWallet}
-                className="group inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full bg-[#0047FF] hover:bg-[#0038CC] text-white font-label-lg text-sm font-semibold shadow-lg shadow-blue-600/40 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
+                className="group inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full bg-[#15ed48] hover:bg-[#12d23f] text-slate-950 font-label-lg text-sm font-bold shadow-lg shadow-emerald-500/30 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
               >
                 <span>Launch App / Connect Wallet</span>
                 <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
@@ -117,8 +169,8 @@ export const HomePage: React.FC<HomePageProps> = ({
             {/* Marquee Wrapper with Smooth Left/Right Gradient Edge Fades */}
             <div className="relative w-full overflow-hidden marquee-mask marquee-container py-2">
               {/* Left & Right Edge Vignette Fades */}
-              <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-[#030919] via-[#030919]/80 to-transparent z-10 pointer-events-none" />
-              <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-[#030919] via-[#030919]/80 to-transparent z-10 pointer-events-none" />
+              <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-10 pointer-events-none" />
+              <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-black/80 via-black/40 to-transparent z-10 pointer-events-none" />
 
               {/* Continuous Sliding Track (Guaranteed Infinite Marquee) */}
               <div 
@@ -162,16 +214,52 @@ export const HomePage: React.FC<HomePageProps> = ({
             </div>
           </div>
         </div>
+        <a
+          href="#about"
+          aria-label="Scroll to learn more"
+          className="absolute bottom-8 left-1/2 z-20 flex h-11 w-11 -translate-x-1/2 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white backdrop-blur-md transition-colors hover:bg-white/25"
+        >
+          <span className="material-symbols-outlined text-[20px]">keyboard_arrow_down</span>
+        </a>
+
+        {/* Live Satellite Stream Indicator & Interactive Slide Switcher */}
+        <div className="absolute bottom-8 right-8 z-20 hidden md:flex items-center gap-3 px-3.5 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-xs font-mono-proof text-slate-300 shadow-lg">
+          <span className="flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+          </span>
+          <span className="text-[11px] font-medium tracking-wide">
+            {HERO_SLIDES[currentSlide].label}
+          </span>
+          <div className="flex items-center gap-1.5 ml-2 border-l border-white/20 pl-3">
+            {HERO_SLIDES.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => {
+                  if (i !== currentSlide) {
+                    setPrevSlide(currentSlide);
+                    setCurrentSlide(i);
+                  }
+                }}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === currentSlide ? 'w-6 bg-emerald-400' : 'w-1.5 bg-white/40 hover:bg-white/80'
+                }`}
+                aria-label={`Switch to feed ${i + 1}`}
+              />
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ==================== LIVE PROTOCOL TELEMETRY METRICS ==================== */}
       <section className="w-full bg-ice-bg border-b border-card-stroke py-14 px-6">
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Metric 1 */}
-          <div className="p-6 rounded-2xl bg-white border border-card-stroke hover:border-blue-400 hover:shadow-lg transition-all duration-300 shadow-sm transform hover:-translate-y-1 group">
+          <div className="p-6 rounded-2xl bg-white border border-card-stroke hover:border-emerald-400 hover:shadow-lg transition-all duration-300 shadow-sm transform hover:-translate-y-1 group">
             <div className="flex items-center justify-between mb-2">
               <span className="font-mono-proof text-xs text-black font-bold uppercase tracking-wider">Total CO₂ Sequestered</span>
-              <span className="font-mono-proof text-[11px] text-primary bg-blue-50 px-2 py-0.5 rounded-full font-bold group-hover:bg-blue-100 transition-colors">
+              <span className="font-mono-proof text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold group-hover:bg-emerald-100 transition-colors">
                 +14.2% MoM
               </span>
             </div>
@@ -182,10 +270,10 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
 
           {/* Metric 2 */}
-          <div className="p-6 rounded-2xl bg-white border border-card-stroke hover:border-blue-400 hover:shadow-lg transition-all duration-300 shadow-sm transform hover:-translate-y-1 group">
+          <div className="p-6 rounded-2xl bg-white border border-card-stroke hover:border-emerald-400 hover:shadow-lg transition-all duration-300 shadow-sm transform hover:-translate-y-1 group">
             <div className="flex items-center justify-between mb-2">
               <span className="font-mono-proof text-xs text-black font-bold uppercase tracking-wider">Active Staked Collateral</span>
-              <span className="material-symbols-outlined text-primary text-[18px] group-hover:scale-110 transition-transform">shield</span>
+              <span className="material-symbols-outlined text-emerald-600 text-[18px] group-hover:scale-110 transition-transform">shield</span>
             </div>
             <div className="font-headline-lg text-3xl font-extrabold text-black mb-1">
               1,450 <span className="text-sm font-mono-data text-slate-700 font-semibold">ETH</span>
@@ -194,10 +282,10 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
 
           {/* Metric 3 */}
-          <div className="p-6 rounded-2xl bg-white border border-card-stroke hover:border-blue-400 hover:shadow-lg transition-all duration-300 shadow-sm transform hover:-translate-y-1 group">
+          <div className="p-6 rounded-2xl bg-white border border-card-stroke hover:border-emerald-400 hover:shadow-lg transition-all duration-300 shadow-sm transform hover:-translate-y-1 group">
             <div className="flex items-center justify-between mb-2">
               <span className="font-mono-proof text-xs text-black font-bold uppercase tracking-wider">Merkle Proofs Anchored</span>
-              <span className="font-mono-proof text-[11px] text-primary bg-blue-50 px-2 py-0.5 rounded-full font-bold group-hover:bg-blue-100 transition-colors">
+              <span className="font-mono-proof text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold group-hover:bg-emerald-100 transition-colors">
                 0% Double-Count
               </span>
             </div>
@@ -208,10 +296,10 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
 
           {/* Metric 4 */}
-          <div className="p-6 rounded-2xl bg-white border border-card-stroke hover:border-blue-400 hover:shadow-lg transition-all duration-300 shadow-sm transform hover:-translate-y-1 group">
+          <div className="p-6 rounded-2xl bg-white border border-card-stroke hover:border-emerald-400 hover:shadow-lg transition-all duration-300 shadow-sm transform hover:-translate-y-1 group">
             <div className="flex items-center justify-between mb-2">
               <span className="font-mono-proof text-xs text-black font-bold uppercase tracking-wider">Certificates Retired</span>
-              <span className="font-mono-proof text-[11px] text-primary bg-blue-50 px-2 py-0.5 rounded-full font-bold group-hover:bg-blue-100 transition-colors">
+              <span className="font-mono-proof text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold group-hover:bg-emerald-100 transition-colors">
                 $0 Fraud Loss
               </span>
             </div>
@@ -224,7 +312,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       </section>
 
       {/* ==================== PARADIGM SHIFT: COMPARISON & PILLARS ==================== */}
-      <section className="w-full py-24 px-6 bg-white">
+      <section id="about" className="w-full py-24 px-6 bg-white">
         <div className="max-w-7xl mx-auto flex flex-col gap-16">
           {/* Section Title Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -257,22 +345,22 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <tr className="hover:bg-slate-50 transition-colors">
                   <td className="py-4 px-6 font-bold text-black">Data Provenance</td>
                   <td className="py-4 px-6 text-slate-900 font-normal leading-relaxed">Manual annual PDF reports, self-reported spreadsheets, sampled site visits every 2–5 years.</td>
-                  <td className="py-4 px-6 text-primary bg-blue-50/70 font-semibold border-l-2 border-primary leading-relaxed">Continuous real-time ingestion from multispectral satellite (Sentinel/Landsat) &amp; IoT ground sensors.</td>
+                  <td className="py-4 px-6 text-emerald-800 bg-emerald-50/70 font-semibold border-l-2 border-[#15ed48] leading-relaxed">Continuous real-time ingestion from multispectral satellite (Sentinel/Landsat) &amp; IoT ground sensors.</td>
                 </tr>
                 <tr className="hover:bg-slate-50 transition-colors">
                   <td className="py-4 px-6 font-bold text-black">Fraud Detection</td>
                   <td className="py-4 px-6 text-slate-900 font-normal leading-relaxed">Post-hoc manual spot-checks. Fraud or canopy over-estimation discovered years after token retirement.</td>
-                  <td className="py-4 px-6 text-primary bg-blue-50/70 font-semibold border-l-2 border-primary leading-relaxed">Automated Isolation Forest anomaly scoring runs per ingestion telemetry batch before verification.</td>
+                  <td className="py-4 px-6 text-emerald-800 bg-emerald-50/70 font-semibold border-l-2 border-[#15ed48] leading-relaxed">Automated Isolation Forest anomaly scoring runs per ingestion telemetry batch before verification.</td>
                 </tr>
                 <tr className="hover:bg-slate-50 transition-colors">
                   <td className="py-4 px-6 font-bold text-black">Auditor Incentives</td>
                   <td className="py-4 px-6 text-slate-900 font-normal leading-relaxed">VVBs paid by project proponents with zero financial skin-in-the-game for erroneous certifications.</td>
-                  <td className="py-4 px-6 text-primary bg-blue-50/70 font-semibold border-l-2 border-primary leading-relaxed">Bonded staking pools. Approving anomalous claims results in on-chain 50% collateral slashing.</td>
+                  <td className="py-4 px-6 text-emerald-800 bg-emerald-50/70 font-semibold border-l-2 border-[#15ed48] leading-relaxed">Bonded staking pools. Approving anomalous claims results in on-chain 50% collateral slashing.</td>
                 </tr>
                 <tr className="hover:bg-slate-50 transition-colors">
                   <td className="py-4 px-6 font-bold text-black">Minting Mechanism</td>
                   <td className="py-4 px-6 text-slate-900 font-normal leading-relaxed">Arbitrary off-chain batch issuance with high vulnerability to double-registry listings.</td>
-                  <td className="py-4 px-6 text-primary bg-blue-50/70 font-semibold border-l-2 border-primary leading-relaxed">Smart contract policy-gated ERC-721 minting conditioned directly on cryptographic Merkle root proofs.</td>
+                  <td className="py-4 px-6 text-emerald-800 bg-emerald-50/70 font-semibold border-l-2 border-[#15ed48] leading-relaxed">Smart contract policy-gated ERC-721 minting conditioned directly on cryptographic Merkle root proofs.</td>
                 </tr>
               </tbody>
             </table>
@@ -281,9 +369,9 @@ export const HomePage: React.FC<HomePageProps> = ({
           {/* 4 Core Pillars Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Pillar 1 */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
               <div>
-                <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-primary mb-6 group-hover:scale-105 group-hover:bg-blue-100 transition-all">
+                <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 mb-6 group-hover:scale-105 group-hover:bg-emerald-100 transition-all">
                   <span className="material-symbols-outlined text-[26px]">satellite_alt</span>
                 </div>
                 <span className="font-mono-proof text-[11px] text-slate-700 uppercase font-bold">Pillar 01</span>
@@ -294,15 +382,15 @@ export const HomePage: React.FC<HomePageProps> = ({
                   Real-time IoT sensor telemetry paired with Sentinel-2 and Landsat multispectral reflectance indexes, cryptographically anchored into SHA-256 Merkle roots.
                 </p>
               </div>
-              <div className="mt-6 pt-4 border-t border-slate-200 flex items-center gap-1.5 text-primary font-mono-proof text-xs font-bold">
+              <div className="mt-6 pt-4 border-t border-slate-200 flex items-center gap-1.5 text-emerald-700 font-mono-proof text-xs font-bold">
                 <span className="material-symbols-outlined text-[14px]">dataset</span> Raw Ingestion Proofs
               </div>
             </div>
 
             {/* Pillar 2 */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
               <div>
-                <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-primary mb-6 group-hover:scale-105 group-hover:bg-blue-100 transition-all">
+                <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 mb-6 group-hover:scale-105 group-hover:bg-emerald-100 transition-all">
                   <span className="material-symbols-outlined text-[26px]">psychology</span>
                 </div>
                 <span className="font-mono-proof text-[11px] text-slate-700 uppercase font-bold">Pillar 02</span>
@@ -313,15 +401,15 @@ export const HomePage: React.FC<HomePageProps> = ({
                   FastAPI-orchestrated Isolation Forest and spatial-temporal gradient models detect sensor drift, biomass fabrication, and statistical outliers instantly.
                 </p>
               </div>
-              <div className="mt-6 pt-4 border-t border-slate-200 flex items-center gap-1.5 text-primary font-mono-proof text-xs font-bold">
+              <div className="mt-6 pt-4 border-t border-slate-200 flex items-center gap-1.5 text-emerald-700 font-mono-proof text-xs font-bold">
                 <span className="material-symbols-outlined text-[14px]">analytics</span> Real-Time Anomaly Rank
               </div>
             </div>
 
             {/* Pillar 3 */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
               <div>
-                <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-primary mb-6 group-hover:scale-105 group-hover:bg-blue-100 transition-all">
+                <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 mb-6 group-hover:scale-105 group-hover:bg-emerald-100 transition-all">
                   <span className="material-symbols-outlined text-[26px]">gavel</span>
                 </div>
                 <span className="font-mono-proof text-[11px] text-slate-700 uppercase font-bold">Pillar 03</span>
@@ -332,15 +420,15 @@ export const HomePage: React.FC<HomePageProps> = ({
                   Auditors bond ETH into sovereign staking contracts. Approving fraudulent or invalidated telemetry bundles triggers an irrevocable 50% collateral slash.
                 </p>
               </div>
-              <div className="mt-6 pt-4 border-t border-slate-200 flex items-center gap-1.5 text-primary font-mono-proof text-xs font-bold">
+              <div className="mt-6 pt-4 border-t border-slate-200 flex items-center gap-1.5 text-emerald-700 font-mono-proof text-xs font-bold">
                 <span className="material-symbols-outlined text-[14px]">account_balance</span> Bonded Auditor Pool
               </div>
             </div>
 
             {/* Pillar 4 */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
               <div>
-                <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-primary mb-6 group-hover:scale-105 group-hover:bg-blue-100 transition-all">
+                <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 mb-6 group-hover:scale-105 group-hover:bg-emerald-100 transition-all">
                   <span className="material-symbols-outlined text-[26px]">token</span>
                 </div>
                 <span className="font-mono-proof text-[11px] text-slate-700 uppercase font-bold">Pillar 04</span>
@@ -351,7 +439,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                   Credits are only minted once cryptographic consensus is satisfied. Includes automated buyer protection escrow and permanent on-chain burn certificates.
                 </p>
               </div>
-              <div className="mt-6 pt-4 border-t border-slate-200 flex items-center gap-1.5 text-primary font-mono-proof text-xs font-bold">
+              <div className="mt-6 pt-4 border-t border-slate-200 flex items-center gap-1.5 text-emerald-700 font-mono-proof text-xs font-bold">
                 <span className="material-symbols-outlined text-[14px]">local_fire_department</span> Provable Retirement
               </div>
             </div>
@@ -360,7 +448,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       </section>
 
       {/* ==================== PROTOCOL LIFECYCLE (4-STEP INTERACTION) ==================== */}
-      <section className="w-full py-24 px-6 bg-ice-bg border-t border-card-stroke">
+      <section id="protocol" className="w-full py-24 px-6 bg-ice-bg border-t border-card-stroke">
         <div className="max-w-7xl mx-auto flex flex-col gap-14">
           <div>
             <span className="font-mono-proof text-xs font-bold text-primary uppercase tracking-widest block mb-2">
@@ -445,7 +533,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       </section>
 
       {/* ==================== USER PERSONAS: WHO WE SERVE (XPANSIV PILLS) ==================== */}
-      <section className="w-full py-24 px-6 bg-white">
+      <section id="roles" className="w-full py-24 px-6 bg-white">
         <div className="max-w-7xl mx-auto flex flex-col gap-12">
           <div className="flex flex-col items-center text-center">
             <h2 className="font-headline-lg text-3xl md:text-4xl font-extrabold text-black mb-3">
@@ -476,13 +564,13 @@ export const HomePage: React.FC<HomePageProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
             {/* Portal Card 1: Project Issuers */}
             {(activePersona === 'all' || activePersona === 'proponents') && (
-              <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-400 transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
+              <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-xl hover:border-emerald-400 transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <span className="px-3 py-1 rounded-full bg-blue-50 text-primary border border-blue-200 font-mono-proof text-[11px] font-bold uppercase">
+                    <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono-proof text-[11px] font-bold uppercase">
                       Project Proponents
                     </span>
-                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-primary group-hover:bg-blue-100 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-100 transition-colors">
                       <span className="material-symbols-outlined text-[20px]">forest</span>
                     </div>
                   </div>
@@ -500,7 +588,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </div>
                 <button
                   onClick={() => onNavigateTab('issuer')}
-                  className="inline-flex items-center gap-2 text-primary font-label-md text-sm font-bold group-hover:translate-x-1 transition-transform w-fit"
+                  className="inline-flex items-center gap-2 text-emerald-600 font-label-md text-sm font-bold group-hover:translate-x-1 transition-transform w-fit"
                 >
                   <span>Enter Issuer Studio</span>
                   <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -510,13 +598,13 @@ export const HomePage: React.FC<HomePageProps> = ({
 
             {/* Portal Card 2: Verifiers & Auditors */}
             {(activePersona === 'all' || activePersona === 'verifiers') && (
-              <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-400 transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
+              <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-xl hover:border-emerald-400 transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <span className="px-3 py-1 rounded-full bg-blue-50 text-primary border border-blue-200 font-mono-proof text-[11px] font-bold uppercase">
+                    <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono-proof text-[11px] font-bold uppercase">
                       VVBs &amp; Certifiers
                     </span>
-                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-primary group-hover:bg-blue-100 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-100 transition-colors">
                       <span className="material-symbols-outlined text-[20px]">policy</span>
                     </div>
                   </div>
@@ -534,7 +622,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </div>
                 <button
                   onClick={() => onNavigateTab('verifier')}
-                  className="inline-flex items-center gap-2 text-primary font-label-md text-sm font-bold group-hover:translate-x-1 transition-transform w-fit"
+                  className="inline-flex items-center gap-2 text-emerald-600 font-label-md text-sm font-bold group-hover:translate-x-1 transition-transform w-fit"
                 >
                   <span>Enter Verifier Portal</span>
                   <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -544,13 +632,13 @@ export const HomePage: React.FC<HomePageProps> = ({
 
             {/* Portal Card 3: Enterprise Buyers */}
             {(activePersona === 'all' || activePersona === 'buyers' || activePersona === 'traders') && (
-              <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-400 transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
+              <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-xl hover:border-emerald-400 transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <span className="px-3 py-1 rounded-full bg-blue-50 text-primary border border-blue-200 font-mono-proof text-[11px] font-bold uppercase">
+                    <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono-proof text-[11px] font-bold uppercase">
                       Institutional Buyers
                     </span>
-                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-primary group-hover:bg-blue-100 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-100 transition-colors">
                       <span className="material-symbols-outlined text-[20px]">storefront</span>
                     </div>
                   </div>
@@ -568,7 +656,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </div>
                 <button
                   onClick={() => onNavigateTab('marketplace')}
-                  className="inline-flex items-center gap-2 text-primary font-label-md text-sm font-bold group-hover:translate-x-1 transition-transform w-fit"
+                  className="inline-flex items-center gap-2 text-emerald-600 font-label-md text-sm font-bold group-hover:translate-x-1 transition-transform w-fit"
                 >
                   <span>Explore Marketplace</span>
                   <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -578,13 +666,13 @@ export const HomePage: React.FC<HomePageProps> = ({
 
             {/* Portal Card 4: Regulators & Public */}
             {(activePersona === 'all' || activePersona === 'regulators') && (
-              <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-400 transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
+              <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-xl hover:border-emerald-400 transition-all duration-300 flex flex-col justify-between group transform hover:-translate-y-1">
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <span className="px-3 py-1 rounded-full bg-blue-50 text-primary border border-blue-200 font-mono-proof text-[11px] font-bold uppercase">
+                    <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono-proof text-[11px] font-bold uppercase">
                       Regulators &amp; Public
                     </span>
-                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-primary group-hover:bg-blue-100 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-100 transition-colors">
                       <span className="material-symbols-outlined text-[20px]">manage_search</span>
                     </div>
                   </div>
@@ -602,7 +690,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </div>
                 <button
                   onClick={() => onNavigateTab('explorer')}
-                  className="inline-flex items-center gap-2 text-primary font-label-md text-sm font-bold group-hover:translate-x-1 transition-transform w-fit"
+                  className="inline-flex items-center gap-2 text-emerald-600 font-label-md text-sm font-bold group-hover:translate-x-1 transition-transform w-fit"
                 >
                   <span>Open Ledger Explorer</span>
                   <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -658,7 +746,7 @@ export const HomePage: React.FC<HomePageProps> = ({
 
           {/* Live Terminal Column */}
           <div className="lg:col-span-7">
-            <div className="rounded-2xl bg-[#081534] border border-blue-900/60 shadow-2xl overflow-hidden font-mono-proof text-xs">
+            <div className="rounded-2xl bg-[#081534] border border-rose-900/60 shadow-2xl overflow-hidden font-mono-proof text-xs">
               {/* Bar */}
               <div className="bg-[#030919] px-4 py-3 flex items-center justify-between border-b border-white/10">
                 <div className="flex items-center gap-2">
@@ -737,7 +825,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                       </div>
                     </div>
 
-                    <div className="p-3 rounded-lg bg-blue-950/60 border border-glow-cyan/40 text-glow-cyan mt-2 flex items-center justify-between transition-all duration-300">
+                    <div className="p-3 rounded-lg bg-rose-950/60 border border-glow-cyan/40 text-glow-cyan mt-2 flex items-center justify-between transition-all duration-300">
                       <span className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-[16px]">verified</span>
                         <span>STATUS: Ready for Escrow Minting [ERC-721 #49102]</span>
@@ -753,7 +841,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       </section>
 
       {/* ==================== INSTITUTIONAL SECURITY & INFRASTRUCTURE TRUST ==================== */}
-      <section className="w-full py-24 px-6 bg-white">
+      <section id="security" className="w-full py-24 px-6 bg-white">
         <div className="max-w-7xl mx-auto flex flex-col gap-12">
           <div className="max-w-3xl">
             <span className="font-mono-proof text-xs font-bold text-primary uppercase tracking-widest block mb-2">
@@ -768,10 +856,10 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Trust Box 1 */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-lg hover:border-blue-400 transition-all duration-300 flex flex-col justify-between transform hover:-translate-y-1">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-lg hover:border-emerald-400 transition-all duration-300 flex flex-col justify-between transform hover:-translate-y-1">
               <div>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-primary">
+                  <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
                     <span className="material-symbols-outlined text-[20px]">terminal</span>
                   </div>
                   <span className="font-mono-data text-sm text-black font-bold">Foundry Invariant Tested</span>
@@ -782,15 +870,15 @@ export const HomePage: React.FC<HomePageProps> = ({
               </div>
               <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between">
                 <span className="font-mono-proof text-xs text-black font-bold">Coverage: 99.4%</span>
-                <span className="font-mono-proof text-xs font-bold text-primary">Invariant Verified</span>
+                <span className="font-mono-proof text-xs font-bold text-emerald-700">Invariant Verified</span>
               </div>
             </div>
 
             {/* Trust Box 2 */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-lg hover:border-blue-400 transition-all duration-300 flex flex-col justify-between transform hover:-translate-y-1">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-lg hover:border-emerald-400 transition-all duration-300 flex flex-col justify-between transform hover:-translate-y-1">
               <div>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-primary">
+                  <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
                     <span className="material-symbols-outlined text-[20px]">verified</span>
                   </div>
                   <span className="font-mono-data text-sm text-black font-bold">CertiK &amp; OpenZeppelin</span>
@@ -801,15 +889,15 @@ export const HomePage: React.FC<HomePageProps> = ({
               </div>
               <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between">
                 <span className="font-mono-proof text-xs text-black font-bold">Security Score: 96.4</span>
-                <span className="font-mono-proof text-xs font-bold text-primary">Tier-1 Validated</span>
+                <span className="font-mono-proof text-xs font-bold text-emerald-700">Tier-1 Validated</span>
               </div>
             </div>
 
             {/* Trust Box 3 */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-lg hover:border-blue-400 transition-all duration-300 flex flex-col justify-between transform hover:-translate-y-1">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-lg hover:border-emerald-400 transition-all duration-300 flex flex-col justify-between transform hover:-translate-y-1">
               <div>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-primary">
+                  <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
                     <span className="material-symbols-outlined text-[20px]">cloud_done</span>
                   </div>
                   <span className="font-mono-data text-sm text-black font-bold">Off-Chain Relational Vault</span>
@@ -830,9 +918,9 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* ==================== INSTITUTIONAL CALL-TO-ACTION BANNER (XPANSIV DEEP BLUE GLOW) ==================== */}
       <section className="w-full py-16 px-6 bg-white">
         <div className="max-w-7xl mx-auto rounded-3xl bg-[#030919] p-12 md:p-20 text-center relative overflow-hidden shadow-2xl border border-white/10">
-          {/* Xpansiv Radial Celestial Glow inside box */}
+          {/* Radial Glow inside box */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-[600px] h-[350px] bg-gradient-to-r from-[#00D2FF]/25 via-[#0047FF]/20 to-transparent blur-[90px] rounded-full" />
+            <div className="w-[600px] h-[350px] bg-gradient-to-r from-[#00a699]/25 via-[#15ed48]/20 to-transparent blur-[90px] rounded-full" />
           </div>
           <div className="relative z-10 max-w-3xl mx-auto flex flex-col items-center">
             <span className="font-mono-proof text-xs text-glow-cyan uppercase tracking-widest mb-3 font-semibold">
@@ -848,7 +936,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               {wallet.isConnected ? (
                 <button
                   onClick={() => onNavigateTab('issuer')}
-                  className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-[#0047FF] hover:bg-[#0038CC] text-white font-label-lg text-sm font-semibold shadow-lg shadow-blue-600/40 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
+                  className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-[#15ed48] hover:bg-[#12d23f] text-slate-950 font-label-lg text-sm font-bold shadow-lg shadow-emerald-500/30 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
                 >
                   <span className="material-symbols-outlined text-[18px]">token</span>
                   <span>Enter Issuer Studio</span>
@@ -856,7 +944,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               ) : (
                 <button
                   onClick={onConnectWallet}
-                  className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-[#0047FF] hover:bg-[#0038CC] text-white font-label-lg text-sm font-semibold shadow-lg shadow-blue-600/40 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
+                  className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-[#15ed48] hover:bg-[#12d23f] text-slate-950 font-label-lg text-sm font-bold shadow-lg shadow-emerald-500/30 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
                 >
                   <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
                   <span>Connect Wallet &amp; Launch</span>
@@ -874,19 +962,17 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </section>
 
-      {/* ==================== FOOTER (XPANSIV CORPORATE DEEP NAVY) ==================== */}
+      {/* ==================== FOOTER ==================== */}
       <footer className="w-full bg-[#040D21] border-t border-white/10 text-slate-300">
         <div className="max-w-7xl mx-auto px-6 py-16">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 pb-14 border-b border-white/10">
             <div className="lg:col-span-2 flex flex-col gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <svg className="w-8 h-8" fill="none" viewBox="0 0 36 36">
-                    <path d="M18 2L32 10V26L18 34L4 26V10L18 2Z" fill="#040D21" stroke="#0047FF" strokeWidth="2" />
-                    <path d="M18 8C13 13 13 23 18 28C23 23 23 13 18 8Z" fill="#0047FF" fillOpacity="0.35" stroke="#0047FF" strokeWidth="1.2" />
-                    <circle cx="18" cy="18" fill="#00D2FF" r="3" />
-                  </svg>
-                </div>
+                <img
+                  src="/logo.png"
+                  alt="Carbonyx Logo"
+                  className="h-8 w-8 object-contain brightness-0 invert"
+                />
                 <span className="font-headline-sm text-lg font-bold text-white tracking-wider">CARBONYX PROTOCOL</span>
               </div>
               <p className="font-body-sm text-xs text-slate-400 max-w-md leading-relaxed">

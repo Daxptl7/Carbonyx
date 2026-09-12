@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { WalletState } from '../lib/web3';
+import { apiFetch, readApiJson } from '../lib/auth';
 
 interface IssuerStudioProps {
   wallet: WalletState;
@@ -98,7 +99,7 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
     setIsFetchingSatellite(true);
     try {
       // Call live /api/satellite/ndvi or simulate
-      const res = await fetch(`${backendUrl}/api/satellite/ndvi`, {
+      const res = await apiFetch(`${backendUrl}/api/satellite/ndvi`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -108,7 +109,7 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
         })
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = await readApiJson<any>(res);
         setSatNdvi(data.meanNdvi || 0.812);
         setSatCanopyCover(Number((100 - (data.cloudCoveragePct || 2)).toFixed(1)));
         setSatCloudCover(data.cloudCoveragePct || 1.2);
@@ -132,7 +133,7 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
 
     try {
       // 1. Register Project
-      const regRes = await fetch(`${backendUrl}/api/projects/register`, {
+      const regRes = await apiFetch(`${backendUrl}/api/projects/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -144,7 +145,7 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
           ownerAddress: developerWallet
         })
       });
-      const regData = await regRes.json();
+      const regData = await readApiJson<any>(regRes);
       if (!regRes.ok && regRes.status !== 200) {
         throw new Error(regData.error || 'Project registration failed');
       }
@@ -189,7 +190,7 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
         }
       ];
 
-      const evRes = await fetch(`${backendUrl}/api/evidence/upload`, {
+      const evRes = await apiFetch(`${backendUrl}/api/evidence/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -198,13 +199,13 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
           evidenceItems
         })
       });
-      const evData = await evRes.json();
+      const evData = await readApiJson<any>(evRes);
       if (!evRes.ok) {
         throw new Error(evData.error || 'Evidence ingestion failed');
       }
 
       // 3. Evaluate AI Risk & Anchoring
-      const riskRes = await fetch(`${backendUrl}/api/risk/evaluate`, {
+      const riskRes = await apiFetch(`${backendUrl}/api/risk/evaluate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -215,7 +216,10 @@ export const IssuerStudio: React.FC<IssuerStudioProps> = ({ wallet, backendUrl, 
           evidenceItems
         })
       });
-      const riskData = await riskRes.json();
+      const riskData = await readApiJson<any>(riskRes);
+      if (!riskRes.ok) {
+        throw new Error(riskData.error || 'Risk evaluation failed');
+      }
 
       setSubmittedResult({
         projectId,

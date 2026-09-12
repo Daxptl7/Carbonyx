@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, AlertTriangle, CheckCircle2, TrendingUp, Cpu, RefreshCw, Layers } from 'lucide-react';
+import { apiFetch, readApiJson } from '../lib/auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005';
 
@@ -9,12 +10,15 @@ export default function VerifierPortal({ walletAddress }: { walletAddress: strin
   const [anomalyQueue, setAnomalyQueue] = useState<any[]>([]);
   const [isLoadingQueue, setIsLoadingQueue] = useState(false);
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const fetchQueue = async () => {
     setIsLoadingQueue(true);
     try {
-      const res = await fetch(`${API_URL}/api/verifiers/queue`);
-      const data = await res.json();
+      const res = await apiFetch(`${API_URL}/api/verifiers/queue`);
+      const data = await readApiJson<any>(res);
+      if (!res.ok) throw new Error(data.error || 'Unable to load verifier queue');
       if (data.queue) {
         setAnomalyQueue(data.queue);
         if (data.queue.length > 0 && !selectedBundle) {
@@ -32,9 +36,61 @@ export default function VerifierPortal({ walletAddress }: { walletAddress: strin
     fetchQueue();
   }, []);
 
-  const handleStake = () => {
-    setStakedAmount(prev => +(prev + 0.1).toFixed(2));
-    alert('Successfully deposited 0.1 ETH stake into VerifierStakingLedger contract!');
+  const handleStake = async () => {
+    if (!walletAddress) {
+      setActionError('Connect the accredited verifier wallet before staking.');
+      return;
+    }
+
+    setIsSubmittingAction(true);
+    setActionError('');
+    const nextStake = +(stakedAmount + 0.1).toFixed(2);
+    try {
+      const response = await apiFetch(`${API_URL}/api/verifiers/stake`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verifierAddress: walletAddress, stakedAmount: nextStake })
+      });
+      const data = await readApiJson<any>(response);
+      if (!response.ok) throw new Error(data.error || 'Unable to record verifier stake');
+      setStakedAmount(Number(data.verifier?.staked_amount ?? nextStake));
+    } catch (error: any) {
+      setActionError(error.message || 'Unable to record verifier stake');
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
+
+  const handleReview = async (approved: boolean) => {
+    if (!selectedBundle || !walletAddress) {
+      setActionError('Select a bundle and connect the accredited verifier wallet.');
+      return;
+    }
+
+    setIsSubmittingAction(true);
+    setActionError('');
+    try {
+      const response = await apiFetch(`${API_URL}/api/verifiers/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bundleId: selectedBundle.bundle_id,
+          verifierAddress: walletAddress,
+          approved,
+          auditNotes: approved
+            ? 'Telemetry discrepancy reviewed and accepted by the accredited verifier.'
+            : 'Telemetry discrepancy rejected and flagged for fraud investigation.'
+        })
+      });
+      const data = await readApiJson<any>(response);
+      if (!response.ok) throw new Error(data.error || 'Unable to submit verifier decision');
+      setSelectedBundle(null);
+      await fetchQueue();
+    } catch (error: any) {
+      setActionError(error.message || 'Unable to submit verifier decision');
+    } finally {
+      setIsSubmittingAction(false);
+    }
   };
 
   return (
@@ -42,8 +98,10 @@ export default function VerifierPortal({ walletAddress }: { walletAddress: strin
       {/* Top Banner */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass">
         <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Shield className="w-5 h-5 text-[#F59E0B]" />
+          <h2 className="text-xl font-bold flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-[#15ed48]">
+              <Shield className="h-5 w-5" />
+            </span>
             Independent Verifier Staking & Review Portal
           </h2>
           <p className="text-sm text-slate-400">
@@ -64,18 +122,18 @@ export default function VerifierPortal({ walletAddress }: { walletAddress: strin
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass">
           <span className="text-xs text-slate-400">Staked Collateral</span>
-          <div className="text-2xl font-black font-mono text-[#10B981] mt-1">{stakedAmount} ETH</div>
+          <div className="text-2xl font-black font-mono text-[#008a05] mt-1">{stakedAmount} ETH</div>
           <div className="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#008a05]" />
             Active in Verifier Pool (Min 0.1 ETH)
           </div>
         </div>
 
         <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass">
           <span className="text-xs text-slate-400">Reputation Score</span>
-          <div className="text-2xl font-black font-mono text-[#06B6D4] mt-1">{reputationScore} / 100</div>
+          <div className="text-2xl font-black font-mono text-[#00a699] mt-1">{reputationScore} / 100</div>
           <div className="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
-            <TrendingUp className="w-3.5 h-3.5 text-[#06B6D4]" />
+            <TrendingUp className="w-3.5 h-3.5 text-[#00a699]" />
             Top 5% Auditor Tier
           </div>
         </div>
@@ -91,12 +149,19 @@ export default function VerifierPortal({ walletAddress }: { walletAddress: strin
         <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass flex flex-col justify-center">
           <button
             onClick={handleStake}
+            disabled={isSubmittingAction || !walletAddress}
             className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#F59E0B] to-[#EF4444] text-black font-bold text-xs hover:opacity-90 transition-all shadow"
           >
-            Deposit +0.1 ETH Stake
+            {isSubmittingAction ? 'Submitting…' : 'Deposit +0.1 ETH Stake'}
           </button>
         </div>
       </div>
+
+      {actionError && (
+        <div className="rounded-xl border border-[#EF4444]/40 bg-[#EF4444]/10 px-4 py-3 text-xs text-[#EF4444]">
+          {actionError}
+        </div>
+      )}
 
       {/* Anomaly Review Queue & Side-by-side Diff Viewer */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -152,7 +217,7 @@ export default function VerifierPortal({ walletAddress }: { walletAddress: strin
               {/* Divergence Card */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="p-4 rounded-xl bg-black/40 border border-white/10">
-                  <div className="text-xs font-mono text-[#10B981] font-bold">IoT Flux Soil Sensors</div>
+                  <div className="text-xs font-mono text-[#008a05] font-bold">IoT Flux Soil Sensors</div>
                   <div className="text-xl font-bold font-mono text-white mt-1">1,050 tCO2e</div>
                   <div className="text-[11px] text-slate-400 mt-1">Reported Net Influx: 412 ppm</div>
                 </div>
@@ -179,23 +244,31 @@ export default function VerifierPortal({ walletAddress }: { walletAddress: strin
 
               {/* XAI Narrative */}
               <div className="text-xs text-slate-300 bg-white/5 p-3 rounded-xl border border-white/5 leading-relaxed">
-                <span className="font-bold text-[#06B6D4]">AI Analysis: </span>
+                <span className="font-bold text-[#00a699]">AI Analysis: </span>
                 {selectedBundle.explanation_reason}
               </div>
 
               {/* Auditor Verdict Buttons */}
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
-                  onClick={() => alert('Evidence bundle rejected. Fraud alert logged on-chain.')}
+                  onClick={() => handleReview(false)}
+                  disabled={isSubmittingAction || !walletAddress}
                   className="px-4 py-2 rounded-xl bg-[#EF4444]/20 border border-[#EF4444]/40 text-[#EF4444] hover:bg-[#EF4444]/30 font-semibold text-xs transition-all"
                 >
-                  Reject & Flag Fraud
+                  {isSubmittingAction ? 'Submitting…' : 'Reject & Flag Fraud'}
                 </button>
                 <button
                   onClick={() => alert('Secondary physical on-site audit requested from issuer.')}
                   className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-semibold text-xs transition-all"
                 >
                   Request Field Samples
+                </button>
+                <button
+                  onClick={() => handleReview(true)}
+                  disabled={isSubmittingAction || !walletAddress}
+                  className="px-4 py-2 rounded-xl bg-[#15ed48] text-slate-950 hover:bg-[#12d23f] font-bold text-xs transition-all disabled:opacity-50"
+                >
+                  {isSubmittingAction ? 'Submitting…' : 'Approve & Issue Credit'}
                 </button>
               </div>
             </div>
