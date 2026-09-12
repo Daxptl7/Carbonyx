@@ -10,6 +10,7 @@ import riskRouter from './routes/risk.routes';
 import creditsRouter from './routes/credits.routes';
 import verifiersRouter from './routes/verifiers.routes';
 import marketplaceRouter from './routes/marketplace.routes';
+import satelliteRouter from './routes/satellite.routes';
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ app.use('/api/risk', riskRouter);
 app.use('/api/credits', creditsRouter);
 app.use('/api/verifiers', verifiersRouter);
 app.use('/api/marketplace', marketplaceRouter);
+app.use('/api/satellite', satelliteRouter);
 
 app.get('/health', async (_req: Request, res: Response) => {
   let supabaseConnected = false;
