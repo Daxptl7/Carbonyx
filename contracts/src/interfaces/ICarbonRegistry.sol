@@ -19,5 +19,6 @@ interface ICarbonRegistry {
     function recordVerification(bytes32 bundleId, bool approved) external;
     function mintCredit(bytes32 bundleId, uint256 co2Tonnage, uint16 vintageYear) external returns (uint256 tokenId);
     function disputeCredit(uint256 tokenId, string calldata reason) external;
+    function setTokenEscrow(uint256 tokenId, bytes32 escrowId) external;
     function resolveDispute(uint256 tokenId, bool upholdDispute, string calldata resolutionDetails) external;
 }

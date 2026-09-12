@@ -81,7 +81,7 @@ contract EscrowSettlement is Ownable, IEscrowSettlement {
 
         // Transfer NFT to buyer and set status to ISSUED/TRANSFERRED
         IERC721(nftContract).safeTransferFrom(e.seller, e.buyer, e.tokenId);
-        ICarbonCreditNFT(nftContract).setCreditStatus(e.tokenId, ICarbonCreditNFT.CreditStatus.ISSUED);
+        try ICarbonCreditNFT(nftContract).setCreditStatus(e.tokenId, ICarbonCreditNFT.CreditStatus.ISSUED) {} catch {}
 
         emit EscrowReleased(escrowId, e.seller, e.amount);
     }
@@ -97,7 +97,7 @@ contract EscrowSettlement is Ownable, IEscrowSettlement {
         require(sent, "Refund to buyer failed");
 
         // Restore NFT status for seller
-        ICarbonCreditNFT(nftContract).setCreditStatus(e.tokenId, ICarbonCreditNFT.CreditStatus.ISSUED);
+        try ICarbonCreditNFT(nftContract).setCreditStatus(e.tokenId, ICarbonCreditNFT.CreditStatus.ISSUED) {} catch {}
 
         emit EscrowRefunded(escrowId, e.buyer, e.amount);
     }

@@ -255,6 +255,13 @@ contract CarbonRegistry is Ownable, ICarbonRegistry {
         return tokenId;
     }
 
+        function setTokenEscrow(uint256 tokenId, bytes32 escrowId) external {
+        if (msg.sender != address(escrowSettlement) && msg.sender != owner() && !trustedRelayers[msg.sender]) {
+            revert UnauthorizedCaller(msg.sender);
+        }
+        tokenToEscrow[tokenId] = escrowId;
+    }
+
     function disputeCredit(uint256 tokenId, string calldata reason) external {
         if (address(carbonCreditNFT) != address(0)) {
             carbonCreditNFT.setCreditStatus(tokenId, ICarbonCreditNFT.CreditStatus.DISPUTED);
