@@ -21,11 +21,22 @@ async function handleEvidenceUpload(req: Request, res: Response) {
 
     const bundleId = customBundleId || `bundle-${projectId}-${Date.now()}`;
 
+    const ALLOWED_SOURCE_TYPES = ['IOT_SENSOR', 'SATELLITE_NDVI', 'OPERATIONAL_DOC', 'VERIFIER_AUDIT'];
+    const normalizeSourceType = (rawType: string) => {
+      if (!rawType) return 'IOT_SENSOR';
+      if (ALLOWED_SOURCE_TYPES.includes(rawType)) return rawType;
+      if (rawType.includes('DOC') || rawType.includes('FINANCIAL') || rawType.includes('EXPENSE')) return 'OPERATIONAL_DOC';
+      if (rawType.includes('SAT') || rawType.includes('NDVI') || rawType.includes('ORBITAL')) return 'SATELLITE_NDVI';
+      if (rawType.includes('AUDIT') || rawType.includes('VERIF')) return 'VERIFIER_AUDIT';
+      return 'IOT_SENSOR';
+    };
+
     const processedItems = evidenceItems.map((item: any) => {
       const payloadHash = CryptographicService.hashPayload(item.payload || item);
+      const normalizedType = normalizeSourceType(item.sourceType);
       return {
         bundle_id: bundleId,
-        source_type: item.sourceType || 'IOT_SENSOR',
+        source_type: normalizedType,
         payload: item.payload || item,
         payload_hash: payloadHash,
         signer_address: item.signerAddress || '0x0000000000000000000000000000000000000000',

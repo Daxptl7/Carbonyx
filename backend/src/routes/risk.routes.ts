@@ -4,63 +4,38 @@ import { CryptographicService } from '../services/cryptographic.service';
 import { RelayerService } from '../services/relayer.service';
 
 const router = Router();
-const ML_ENGINE_URL = process.env.ML_ENGINE_URL || 'http://127.0.0.1:8000';
+const ML_ENGINE_URL = process.env.ML_ENGINE_URL || 'http://localhost:8000';
 
 router.post('/evaluate', async (req: Request, res: Response) => {
   try {
-    const {
-      bundleId,
-      projectId,
-      projectType,
-      declaredTonnage,
-      evidenceItems
-    } = req.body;
+    const { bundleId, projectId, projectType, declaredTonnage, evidenceItems } = req.body || {};
 
     if (!bundleId) {
       return res.status(400).json({ error: 'bundleId is required' });
     }
 
-    // If evidenceItems not provided in body, load from Supabase evidence_items
-    let itemsToScore = evidenceItems;
-    if (!itemsToScore || !Array.isArray(itemsToScore) || itemsToScore.length === 0) {
-      const { data: dbItems } = await supabase
-        .from('evidence_items')
-        .select('*')
-        .eq('bundle_id', bundleId);
-      if (dbItems && dbItems.length > 0) {
-        itemsToScore = dbItems.map((di: any) => ({
-          sourceType: di.source_type,
-          name: di.payload?.name || di.source_type,
-          payload: di.payload
-        }));
-      }
-    }
-
     const declared = Number(declaredTonnage || 500);
+    const rawItems: any[] = Array.isArray(evidenceItems) ? evidenceItems : [];
 
-    // Normalize evidence items so both payload-based and schema-based items are cleanly formatted
-    const normalizedItems = (itemsToScore || []).map((item: any) => {
-      const p = item.payload || {};
-      let metric = item.metric || 'co2_flux_ppm';
-      let value = 412.5;
+    // Normalize items for ML schema compatibility
+    const normalizedItems = rawItems.map((item: any) => {
+      const p = item.payload || item;
+      let metric = 'CO2_FLUX';
+      let value = 0;
       let calculatedTonnage = declared;
 
-      if (item.sourceType === 'IOT_SENSOR') {
-        metric = item.metric || 'co2_flux_ppm';
-        value = Number(item.value ?? p.co2FluxPpm ?? p.co2_flux_ppm ?? 412.5);
-        calculatedTonnage = Number(item.calculatedTonnage ?? p.calculatedTonnage ?? p.calculated_tonnage ?? (declared * (value / 412.5)));
-      } else if (item.sourceType === 'SATELLITE_NDVI') {
-        metric = item.metric || 'canopy_cover_delta';
-        value = Number(item.value ?? p.canopyCoverDelta ?? (p.meanNdvi ? p.meanNdvi - 0.65 : 0.18));
-        calculatedTonnage = Number(item.calculatedTonnage ?? p.calculatedTonnage ?? p.calculated_tonnage ?? declared);
-      } else if (item.sourceType === 'OPERATIONAL_DOC') {
-        metric = item.metric || 'planted_saplings';
-        value = Number(item.value ?? p.plantedSaplings ?? p.saplings ?? 25000);
-        calculatedTonnage = Number(item.calculatedTonnage ?? p.calculatedTonnage ?? p.calculated_tonnage ?? declared);
+      if (item.sourceType === 'IOT_SENSOR' || p.sensorId) {
+        metric = 'CO2_FLUX';
+        value = Number(p.co2FluxPpm ?? p.co2Flux ?? p.value ?? 418.2);
+        calculatedTonnage = Number(p.biomassKgM2 ? p.biomassKgM2 * 3.5 : declared);
+      } else if (item.sourceType === 'SATELLITE_NDVI' || p.satellite) {
+        metric = 'NDVI_CHANGE';
+        value = Number(p.meanNdvi ?? p.ndvi ?? 0.812);
+        calculatedTonnage = Number(p.canopyCoveragePct ? (p.canopyCoveragePct / 100) * declared * 1.1 : declared);
       } else {
-        metric = item.metric || 'audit_metric';
-        value = Number(item.value ?? p.value ?? 1.0);
-        calculatedTonnage = Number(item.calculatedTonnage ?? p.calculatedTonnage ?? declared);
+        metric = 'VERIFIER_ASSESSMENT';
+        value = 1.0;
+        calculatedTonnage = declared;
       }
 
       return {
@@ -93,9 +68,8 @@ router.post('/evaluate', async (req: Request, res: Response) => {
         throw new Error(`ML Engine HTTP ${response.status}: ${errText}`);
       }
     } catch (mlErr: any) {
-      console.warn('ML Engine call error, executing heuristic fallback:', mlErr.message);
+      console.warn('ML Engine offline or executing dynamic heuristic fallback:', mlErr.message);
 
-      // Dynamic algorithmic fallback based on actual normalized evidence values
       let deductions = 0;
       const flags: string[] = [];
 
@@ -104,20 +78,15 @@ router.post('/evaluate', async (req: Request, res: Response) => {
           deductions += 35;
           flags.push(`CO2_FLUX_ELEVATED: Sensor CO2 flux ${item.value} ppm exceeds standard baseline`);
         }
-        if (item.sourceType === 'SATELLITE_NDVI' && item.value < 0) {
+        if (item.sourceType === 'SATELLITE_NDVI' && item.value < 0.65) {
           deductions += 30;
-          flags.push(`NDVI_DEGRADATION: Satellite canopy change (${item.value}) indicates negative vegetative growth`);
+          flags.push(`NDVI_DEGRADATION: Satellite canopy NDVI (${item.value}) indicates low vegetative density`);
         }
         const devPct = Math.abs((item.calculatedTonnage - declared) / declared) * 100;
-        if (devPct > 15) {
+        if (devPct > 20) {
           deductions += 20;
           flags.push(`TONNAGE_MISMATCH: Calculated tonnage deviates ${devPct.toFixed(1)}% from declared ${declared} tCO2e`);
         }
-      }
-
-      if (normalizedItems.length < 2) {
-        deductions += 15;
-        flags.push('INSUFFICIENT_SOURCES: Minimum 2 corroborating streams required for full confidence');
       }
 
       const dynScore = Math.max(0, Math.min(100, 100 - deductions));
@@ -144,9 +113,7 @@ router.post('/evaluate', async (req: Request, res: Response) => {
       autoMintEligible,
       verifierRequired,
       anomalyFlags,
-      explanationReason,
-      recommendedVerifier,
-      executionTimeMs
+      explanationReason
     } = scoreResult;
 
     const assessmentRecord = {
@@ -165,10 +132,6 @@ router.post('/evaluate', async (req: Request, res: Response) => {
       .select()
       .single();
 
-    if (riskError) {
-      console.warn('[Supabase] Warning saving risk assessment:', riskError.message);
-    }
-
     let onChainRiskTxHash = null;
     try {
       const correlationMet = !(anomalyFlags || []).some((f: string) => f.includes('MISMATCH') || f.includes('DEVIATION'));
@@ -183,43 +146,11 @@ router.post('/evaluate', async (req: Request, res: Response) => {
       console.warn('[Relayer] On-chain risk recording warning:', err.message);
     }
 
-    let mintResult = null;
-    if (autoMintEligible) {
-      try {
-        const tonnageToMint = Number(declaredTonnage || 500);
-        const { txHash, tokenId } = await RelayerService.mintCreditOnChain(bundleId, tonnageToMint, 2026);
-        mintResult = { txHash, tokenId };
-
-        const { data: bundle } = await supabase
-          .from('evidence_bundles')
-          .select('merkle_root')
-          .eq('bundle_id', bundleId)
-          .single();
-
-        await supabase
-          .from('carbon_credit_nfts')
-          .upsert({
-            token_id: tokenId,
-            project_id: projectId || 'PROJ-DEFAULT',
-            bundle_id: bundleId,
-            current_owner: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-            co2_tonnage: tonnageToMint,
-            vintage_year: 2026,
-            merkle_root: bundle?.merkle_root || '0x' + '0'.repeat(64),
-            status: 'ISSUED'
-          });
-      } catch (err: any) {
-        console.warn('[Relayer] Auto-mint execution warning:', err.message);
-      }
-    }
-
     return res.status(200).json({
       success: true,
       riskAssessment: riskRecord || assessmentRecord,
       assessment: riskRecord || assessmentRecord,
       txHash: onChainRiskTxHash,
-      onChainRiskTxHash,
-      mintResult,
       message: 'Risk assessment evaluated and recorded successfully'
     });
   } catch (error: any) {
