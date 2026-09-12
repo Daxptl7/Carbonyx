@@ -3,10 +3,18 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  [id] {
+    scroll-margin-top: 5rem;
+  }
+
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: #0B0F17;
-    color: #F8FAFC;
+    background-color: #f7f7f7;
+    color: #222222;
     overflow-x: hidden;
   }
 
@@ -70,4 +78,327 @@
 }
 .animation-delay-500 {
   animation-delay: 500ms;
+}
+
+/* OddoXLDCE-inspired surface system: white cards, coral actions, soft gray canvas. */
+.oddox-public-theme {
+  --oddo-primary: #15ed48;
+  --oddo-primary-hover: #12d23f;
+  --oddo-teal: #00a699;
+  --oddo-ink: #222222;
+  --oddo-muted: #6a6a6a;
+  --oddo-border: #dddddd;
+  --oddo-canvas: #f7f7f7;
+}
+
+.oddox-public-theme section:not(:first-child) {
+  color: var(--oddo-ink);
+}
+
+.oddox-public-theme footer {
+  background: #222222 !important;
+  border-color: #3d3d3d !important;
+}
+
+.oddox-auth-theme {
+  background: var(--oddo-canvas, #f7f7f7) !important;
+  color: #222222 !important;
+}
+
+.oddox-auth-theme > div:first-child {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 56, 92, 0.12), transparent 34%),
+    radial-gradient(circle at 88% 80%, rgba(0, 166, 153, 0.1), transparent 32%) !important;
+}
+
+.oddox-auth-theme header,
+.oddox-auth-theme section:last-child {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: #dddddd !important;
+  box-shadow: 0 12px 40px rgba(34, 34, 34, 0.08) !important;
+}
+
+.oddox-auth-theme header {
+  padding: 0.75rem 1rem;
+  border: 1px solid #dddddd;
+  border-radius: 9999px;
+}
+
+.oddox-auth-theme [class~="text-white"] {
+  color: #222222 !important;
+}
+
+.oddox-auth-theme [class~="text-slate-300"],
+.oddox-auth-theme [class~="text-slate-400"] {
+  color: #6a6a6a !important;
+}
+
+.oddox-auth-theme [class~="text-slate-500"],
+.oddox-auth-theme [class~="text-slate-600"] {
+  color: #767676 !important;
+}
+
+.oddox-auth-theme [class~="border-white/10"],
+.oddox-auth-theme [class~="border-white/15"],
+.oddox-auth-theme [class~="border-white/20"] {
+  border-color: #dddddd !important;
+}
+
+.oddox-auth-theme [class~="bg-white/5"],
+.oddox-auth-theme [class~="bg-white/[0.045]"],
+.oddox-auth-theme [class~="bg-white/[0.07]"],
+.oddox-auth-theme [class~="bg-white/10"],
+.oddox-auth-theme [class~="bg-black/20"],
+.oddox-auth-theme [class~="bg-black/25"],
+.oddox-auth-theme [class~="bg-[#071027]"] {
+  background: #ffffff !important;
+}
+
+.oddox-auth-theme input,
+.oddox-auth-theme select,
+.oddox-auth-theme textarea {
+  background: #ffffff !important;
+  border-color: #dddddd !important;
+  color: #222222 !important;
+  box-shadow: none !important;
+}
+
+.oddox-auth-theme input::placeholder,
+.oddox-auth-theme textarea::placeholder {
+  color: #9a9a9a !important;
+}
+
+.oddox-auth-theme input:focus,
+.oddox-auth-theme select:focus,
+.oddox-auth-theme textarea:focus {
+  border-color: #222222 !important;
+  box-shadow: 0 0 0 1px #222222 !important;
+}
+
+.oddox-auth-theme button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.oddox-auth-theme button:focus-visible,
+.oddox-dashboard-theme button:focus-visible,
+.oddox-public-theme button:focus-visible,
+.oddox-public-theme a:focus-visible {
+  outline: 2px solid #15ed48;
+  outline-offset: 3px;
+}
+
+.oddox-auth-theme div[class*="bg-[#15ed48]"],
+.oddox-auth-theme div[class*="bg-[#ff385c]"] {
+  color: #0f172a !important;
+}
+
+.oddox-auth-theme button[class*="bg-[#15ed48]"],
+.oddox-auth-theme button[class*="bg-[#ff385c]"],
+.oddox-auth-theme button[class~="bg-primary"] {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  box-shadow: 0 8px 22px rgba(21, 237, 72, 0.28) !important;
+}
+
+.oddox-dashboard-theme {
+  background: #f7f7f7 !important;
+  color: #222222 !important;
+}
+
+.oddox-dashboard-theme > header,
+.oddox-dashboard-theme > div[class*="fixed"][class*="top-"] {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: #dddddd !important;
+  box-shadow: 0 1px 12px rgba(34, 34, 34, 0.07) !important;
+}
+
+.oddox-dashboard-theme main [class~="bg-white/5"],
+.oddox-dashboard-theme main [class~="bg-white/10"],
+.oddox-dashboard-theme main [class~="bg-white/15"],
+.oddox-dashboard-theme main [class~="bg-black/30"],
+.oddox-dashboard-theme main [class~="bg-black/40"],
+.oddox-dashboard-theme main [class~="bg-slate-950/20"],
+.oddox-dashboard-theme main [class~="bg-slate-950/40"],
+.oddox-dashboard-theme main [class~="bg-slate-950/70"],
+.oddox-dashboard-theme main [class~="bg-slate-950/80"],
+.oddox-dashboard-theme main [class~="bg-slate-900/50"],
+.oddox-dashboard-theme main [class~="bg-slate-900/60"],
+.oddox-dashboard-theme main [class~="bg-slate-900/80"],
+.oddox-dashboard-theme main [class~="bg-slate-900/90"],
+.oddox-dashboard-theme main [class~="bg-slate-900"],
+.oddox-dashboard-theme main [class~="bg-slate-800"],
+.oddox-dashboard-theme main [class~="bg-slate-700"],
+.oddox-dashboard-theme main [class~="bg-[#0B0F17]"] {
+  background: #ffffff !important;
+}
+
+.oddox-dashboard-theme main [class~="border-white/5"],
+.oddox-dashboard-theme main [class~="border-white/10"],
+.oddox-dashboard-theme main [class~="border-white/15"],
+.oddox-dashboard-theme main [class~="border-white/20"],
+.oddox-dashboard-theme main [class~="border-slate-700"],
+.oddox-dashboard-theme main [class~="border-slate-800"] {
+  border-color: #dddddd !important;
+}
+
+.oddox-dashboard-theme main [class~="text-white"],
+.oddox-dashboard-theme main [class~="text-slate-200"],
+.oddox-dashboard-theme main [class~="text-slate-300"] {
+  color: #222222 !important;
+}
+
+.oddox-dashboard-theme main [class~="text-slate-400"] {
+  color: #6a6a6a !important;
+}
+
+.oddox-dashboard-theme main [class~="text-slate-500"] {
+  color: #767676 !important;
+}
+
+.oddox-dashboard-theme main > div > div[class*="rounded"],
+.oddox-dashboard-theme main [class*="backdrop-blur-glass"] {
+  box-shadow: 0 1px 3px rgba(34, 34, 34, 0.08);
+}
+
+.oddox-dashboard-theme main [class*="backdrop-blur-glass"] {
+  border-color: #dddddd !important;
+  border-radius: 1rem !important;
+  background-color: #ffffff !important;
+  backdrop-filter: none;
+}
+
+.oddox-dashboard-theme input,
+.oddox-dashboard-theme select,
+.oddox-dashboard-theme textarea {
+  border-color: #dddddd !important;
+  background: #ffffff !important;
+  color: #222222 !important;
+  box-shadow: none !important;
+}
+
+.oddox-dashboard-theme input::placeholder,
+.oddox-dashboard-theme textarea::placeholder {
+  color: #8a8a8a !important;
+}
+
+.oddox-dashboard-theme input:focus,
+.oddox-dashboard-theme select:focus,
+.oddox-dashboard-theme textarea:focus {
+  border-color: #222222 !important;
+  box-shadow: 0 0 0 1px #222222 !important;
+  outline: none !important;
+}
+
+/* Reference-app button geometry: actions are pills, selectable tiles stay cards. */
+.oddox-dashboard-theme main button[class*="py-"]:not([class*="text-left"]),
+.oddox-auth-theme main button[class*="py-"]:not([class*="text-left"]) {
+  border-radius: 9999px !important;
+}
+
+.oddox-dashboard-theme main button[class*="bg-gradient"] {
+  background: #15ed48 !important;
+  border-color: #15ed48 !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 2px rgba(34, 34, 34, 0.08) !important;
+}
+
+.oddox-dashboard-theme main button[class*="bg-white/5"],
+.oddox-dashboard-theme main button[class*="bg-white/10"],
+.oddox-dashboard-theme main button[class*="bg-slate-8"] {
+  border-color: #dddddd !important;
+  background: #ffffff !important;
+  color: #222222 !important;
+}
+
+.oddox-dashboard-theme main button[class*="bg-white/5"]:hover,
+.oddox-dashboard-theme main button[class*="bg-white/10"]:hover,
+.oddox-dashboard-theme main button[class*="bg-slate-8"]:hover {
+  border-color: #222222 !important;
+  background: #f7f7f7 !important;
+}
+
+.oddox-dashboard-theme header span[class~="bg-[#222222]"] {
+  color: #ffffff !important;
+}
+
+.oddox-dashboard-theme button[class*="bg-[#15ed48]"],
+.oddox-dashboard-theme button[class*="bg-[#ff385c]"],
+.oddox-dashboard-theme button[class*="bg-gradient"],
+.oddox-dashboard-theme button[class~="bg-emerald-500"],
+.oddox-dashboard-theme button[class~="bg-[#008a05]"] {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+.oddox-dashboard-theme footer {
+  background: #222222 !important;
+  border-color: #3d3d3d !important;
+  color: #ffffff !important;
+}
+
+.oddox-dashboard-theme footer [class~="text-white"] {
+  color: #ffffff !important;
+}
+
+.oddox-dashboard-theme footer [class~="text-slate-300"],
+.oddox-dashboard-theme footer [class~="text-slate-400"] {
+  color: #cfcfcf !important;
+}
+
+/* Keep the live dev server in sync even before Tailwind config is restarted. */
+.text-primary,
+.text-electric-blue {
+  color: #15ed48 !important;
+}
+
+.bg-primary,
+.bg-electric-blue {
+  background-color: #15ed48 !important;
+}
+
+.border-primary {
+  border-color: #15ed48 !important;
+}
+
+.text-glow-cyan {
+  color: #00a699 !important;
+}
+
+.bg-glow-cyan {
+  background-color: #00a699 !important;
+}
+
+.border-glow-cyan {
+  border-color: #00a699 !important;
+}
+
+.bg-ice-bg {
+  background-color: #f7f7f7 !important;
+}
+
+.bg-ice-tint {
+  background-color: #fafafa !important;
+}
+
+.border-card-stroke {
+  border-color: #dddddd !important;
+}
+
+.group:hover .group-hover\:text-glow-cyan {
+  color: #00a699 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
 }
