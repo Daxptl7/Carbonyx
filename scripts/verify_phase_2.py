@@ -49,16 +49,26 @@ except Exception as e:
 # 2. Backend Relayer & Cryptographic Merkle Pipeline
 log_step(2, "Verifying Backend Relayer & Cryptographic Merkle Engine")
 try:
-    base_url = "http://localhost:5000"
+    base_url = "http://localhost:5005"
     
     # 2a. Health
     h = requests.get(f"{base_url}/health", timeout=15).json()
     assert h.get("status") == "HEALTHY", "Backend not healthy"
     log_success(f"Backend API Healthy: {h.get('status')} (Supabase: {h.get('supabaseConnected')})")
 
+    # Authenticate as the project proponent. All pipeline mutations are role-gated.
+    api = requests.Session()
+    auth = api.post(f"{base_url}/api/auth/login", json={
+        "loginId": "proponent.demo",
+        "password": "Carbon@2026"
+    }, timeout=15).json()
+    assert auth.get("token"), f"Authentication failed: {auth}"
+    api.headers.update({"Authorization": f"Bearer {auth['token']}"})
+    log_success("Project Proponent RBAC session established")
+
     # 2b. Project Registration & DID
     proj_id = f"PROJ-VERIFY-{int(time.time())}"
-    r_proj = requests.post(f"{base_url}/api/projects/register", json={
+    r_proj = api.post(f"{base_url}/api/projects/register", json={
         "projectId": proj_id,
         "name": "Sumatra Coastal Mangrove Restoration",
         "projectType": "BLUE_CARBON",
@@ -70,7 +80,7 @@ try:
     log_success(f"Project Registered with DID: {r_proj.get('did')}")
 
     # 2c. Evidence Upload & Merkle Tree
-    r_ev = requests.post(f"{base_url}/api/evidence/upload", json={
+    r_ev = api.post(f"{base_url}/api/evidence/upload", json={
         "projectId": proj_id,
         "monitoringPeriod": { "startDate": "2026-01-01", "endDate": "2026-03-31" },
         "evidenceItems": [
@@ -85,7 +95,7 @@ try:
     log_success(f"Evidence Ingested • Merkle Root: {merkle_root[:18]}... (3 leaves)")
 
     # 2d. Risk Evaluation
-    r_risk = requests.post(f"{base_url}/api/risk/evaluate", json={
+    r_risk = api.post(f"{base_url}/api/risk/evaluate", json={
         "bundleId": bundle_id,
         "projectId": proj_id,
         "declaredTonnage": 500
@@ -94,7 +104,7 @@ try:
     log_success(f"Risk Score: {r_risk['riskAssessment']['confidence_score']}% ({r_risk['riskAssessment']['risk_level']} RISK)")
 
     # 2e. Gated Minting
-    r_mint = requests.post(f"{base_url}/api/credits/mint", json={
+    r_mint = api.post(f"{base_url}/api/credits/mint", json={
         "bundleId": bundle_id,
         "projectId": proj_id,
         "co2Tonnage": 500,

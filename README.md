@@ -152,10 +152,12 @@ Ask the team lead for the `.env` credentials and skip to [Environment Variables 
 5. **Deploy the Database Schema:**
    - In the Supabase sidebar, go to the **SQL Editor** (terminal icon).
    - Click **New query**.
-   - Copy the entire contents of the file:
-     `supabase/migrations/20260912000000_init_schema.sql`
-   - Paste it into the SQL Editor and click **Run**.
-   - Verify that all 8 tables are created in the **Table Editor**:
+   - Run the SQL migrations in filename order:
+     1. `supabase/migrations/20260912000000_init_schema.sql`
+     2. `supabase/migrations/20260912010000_app_users_rbac.sql`
+     3. `supabase/migrations/20260912020000_phase3_rbac_integration.sql`
+   - Paste each file into the SQL Editor and click **Run**.
+   - Verify that all 9 tables are created in the **Table Editor**:
      1. `projects`
      2. `evidence_bundles`
      3. `evidence_items`
@@ -164,6 +166,7 @@ Ask the team lead for the `.env` credentials and skip to [Environment Variables 
      6. `carbon_credit_nfts`
      7. `escrows`
      8. `disputes`
+     9. `app_users`
    - Verify that the 2 storage buckets exist under **Storage**:
      1. `evidence-vault` (Private)
      2. `certificates` (Public)
@@ -177,12 +180,15 @@ You need three `.env` files across the monorepo. Create them by copying the samp
 ### 1. Backend: `/backend/.env`
 Create `backend/.env`:
 ```env
-PORT=5000
+PORT=5005
 NODE_ENV=development
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your_anon_key_here
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 DATABASE_URL=postgresql://postgres:yourpassword@db.your-project.supabase.co:5432/postgres
+AUTH_TOKEN_SECRET=replace-with-at-least-32-random-characters
+VERIFIER_SIGNUP_CODE=replace-with-verifier-invitation-code
+AUDITOR_SIGNUP_CODE=replace-with-regulator-invitation-code
 ML_ENGINE_URL=http://localhost:8000
 RPC_URL=http://127.0.0.1:8545
 CHAIN_ID=31337
@@ -193,12 +199,26 @@ COPERNICUS_CLIENT_SECRET=
 ### 2. Frontend: `/frontend/.env`
 Create `frontend/.env`:
 ```env
-VITE_API_URL=http://localhost:5000
+VITE_API_URL=http://localhost:5005
 VITE_ML_ENGINE_URL=http://localhost:8000
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_key_here
 VITE_CHAIN_ID=31337
+VITE_SHOW_DEMO_ACCOUNTS=true
 ```
+
+### Demo role identities
+
+The RBAC migration creates four local/hackathon identities. The login screen can fill these credentials from the matching role card when `VITE_SHOW_DEMO_ACCOUNTS=true`.
+
+| Protocol role | User ID | Password | Authorized module |
+| :--- | :--- | :--- | :--- |
+| Project Proponent | `proponent.demo` | `Carbon@2026` | Project registration → evidence → risk gate → read-only baseline registry |
+| Independent Verifier | `verifier.demo` | `Verify@2026` | Staking and escalated review queue |
+| Corporate Buyer | `buyer.demo` | `Buyer@2026` | Marketplace, escrow and retirement |
+| Regulator / Auditor | `auditor.demo` | `Audit@2026` | Baseline challenges, provenance, and compliance explorer |
+
+These are demo credentials only. Replace the seeded accounts, set `VITE_SHOW_DEMO_ACCOUNTS=false`, and configure a strong `AUTH_TOKEN_SECRET` before deployment. Credential login grants application permissions; a connected wallet is still required to own or sign blockchain transactions.
 
 ### 3. ML Engine: `/ml-engine/.env`
 Create `ml-engine/.env`:
@@ -272,7 +292,7 @@ npm install
 # Start Express in development mode with live reload
 npm run dev
 ```
-*Backend API runs on `http://localhost:5000` (`http://localhost:5000/health` returns status).*
+*Backend API runs on `http://localhost:5005` (`http://localhost:5005/health` returns status).*
 
 ---
 
@@ -304,7 +324,7 @@ python3 scripts/verify_phase_1.py
 ### What It Verifies:
 1. **Foundry Smart Contracts:** `forge build` & `forge test`
 2. **FastAPI ML Service:** GET `http://localhost:8000/health`
-3. **Express Backend:** GET `http://localhost:5000/health` (including Supabase connectivity)
+3. **Express Backend:** GET `http://localhost:5005/health` (including Supabase connectivity)
 4. **React Frontend:** Production bundle compilation (`npm run build`)
 5. **Supabase Database:** Active table schemas & read/write integrity
 

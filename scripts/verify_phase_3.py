@@ -11,7 +11,7 @@ load_dotenv(Path(__file__).parent.parent / "backend" / ".env")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-BACKEND_URL = "http://localhost:5000"
+BACKEND_URL = os.getenv("BACKEND_URL", f"http://localhost:{os.getenv('PORT', '5005')}")
 
 ENV = {**os.environ, "PATH": f"{os.path.expanduser('~')}/.foundry/bin:{os.path.expanduser('~')}/.cargo/bin:" + os.environ.get("PATH", "")}
 
@@ -54,13 +54,24 @@ def test_backend_endpoints():
                 continue
 
     try:
+        def login(login_id, password):
+            response = requests.post(f"{BACKEND_URL}/api/auth/login", json={
+                "loginId": login_id,
+                "password": password
+            }, timeout=10)
+            assert response.status_code == 200, f"Login failed for {login_id}: {response.text}"
+            return {"Authorization": f"Bearer {response.json()['token']}"}
+
+        verifier_headers = login("verifier.demo", "Verify@2026")
+        buyer_headers = login("buyer.demo", "Buyer@2026")
+
         # 1. Health check
         h_res = requests.get(f"{BACKEND_URL}/health", timeout=10)
         assert h_res.status_code == 200, f"Health check failed: {h_res.text}"
         print("  ✓ Backend health check passed")
 
         # 2. Verifiers Queue
-        q_res = requests.get(f"{BACKEND_URL}/api/verifiers/queue", timeout=10)
+        q_res = requests.get(f"{BACKEND_URL}/api/verifiers/queue", headers=verifier_headers, timeout=10)
         assert q_res.status_code == 200, f"Verifier queue failed: {q_res.text}"
         print(f"  ✓ Verifier queue active ({len(q_res.json().get('queue', []))} pending items)")
 
@@ -69,12 +80,12 @@ def test_backend_endpoints():
             "verifierAddress": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
             "amountEth": "0.5",
             "transactionHash": "0xmockstakehash123"
-        }, timeout=10)
+        }, headers=verifier_headers, timeout=10)
         assert stk_res.status_code == 200, f"Verifier stake API failed: {stk_res.text}"
         print("  ✓ Verifier stake recorded into Supabase & Staking Ledger")
 
         # 4. Marketplace Credits
-        m_res = requests.get(f"{BACKEND_URL}/api/marketplace/credits", timeout=10)
+        m_res = requests.get(f"{BACKEND_URL}/api/marketplace/credits", headers=buyer_headers, timeout=10)
         assert m_res.status_code == 200, f"Marketplace credits API failed: {m_res.text}"
         print(f"  ✓ Marketplace credits active ({len(m_res.json().get('credits', []))} active listings)")
 
@@ -86,7 +97,7 @@ def test_backend_endpoints():
             "sellerAddress": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
             "amountEth": "0.15",
             "amountTons": 10
-        }, timeout=10)
+        }, headers=buyer_headers, timeout=10)
         assert esc_res.status_code in [200, 201], f"Escrow buy API failed: {esc_res.text}"
         escrow_id = esc_res.json().get("escrowId") or (esc_res.json().get("escrow") or {}).get("escrow_id")
         print(f"  ✓ Custodial escrow buy initiated (ID: {escrow_id})")
@@ -94,7 +105,7 @@ def test_backend_endpoints():
         # 6. Escrow Release
         rel_res = requests.post(f"{BACKEND_URL}/api/marketplace/escrow/release", json={
             "escrowId": escrow_id
-        }, timeout=10)
+        }, headers=buyer_headers, timeout=10)
         assert rel_res.status_code == 200, f"Escrow release API failed: {rel_res.text}"
         print(f"  ✓ Escrow settlement completed & funds released to seller")
 
@@ -104,7 +115,7 @@ def test_backend_endpoints():
             "retiredBy": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
             "beneficiary": "Acme CleanTech Corp ESG Offset",
             "retireReason": "Scope 1 Corporate Net-Zero Offset FY2026"
-        }, timeout=10)
+        }, headers=buyer_headers, timeout=10)
         assert ret_res.status_code == 200, f"Retire API failed: {ret_res.text}"
         cert_hash = ret_res.json().get("certificateHash")
         print(f"  ✓ Carbon Credit burned & permanent retirement certificate issued: {cert_hash}")
@@ -137,7 +148,7 @@ def test_supabase_persistence():
     }
     tables = [
         "projects", "evidence_bundles", "evidence_items",
-        "risk_assessments", "verifier_stakes", "carbon_credit_nfts", "escrows"
+        "risk_assessments", "verifier_stakes", "carbon_credit_nfts", "escrows", "app_users"
     ]
     all_ok = True
     for table in tables:
