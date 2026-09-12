@@ -26,7 +26,7 @@ class Settings:
     PORT: int = int(os.getenv("PORT", "8000"))
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "info")
-    MODEL_PATH: str = os.getenv("MODEL_PATH", "models/isolation_forest.joblib")
+    MODEL_PATH: str = os.getenv("MODEL_PATH", "model/anomaly_model.pkl")
     
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
     SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")

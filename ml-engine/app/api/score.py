@@ -121,4 +121,5 @@ def score_evidence_bundle(request: ScoreRequest):
         explanationReason=explanation,
         recommendedVerifier=recommended_verifier,
         executionTimeMs=execution_time_ms,
+        modelInfo=anomaly_detector.info(),
     )

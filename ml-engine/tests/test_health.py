@@ -9,6 +9,7 @@ Also tests edge cases: single source, boundary values, and correlation failures.
 """
 
 from fastapi.testclient import TestClient
+from pathlib import Path
 from app.main import app
 from app.schemas.evidence_schema import ScoreRequest, ScoreResponse
 
@@ -24,6 +25,25 @@ def test_health_endpoint():
     data = response.json()
     assert data["status"] == "online"
     assert data["service"] == "Carbonyx AI/ML Engine"
+    assert "anomalyModel" in data
+
+
+def test_trained_anomaly_model_loaded_when_artifact_exists():
+    """The ML engine should use the persisted trained model artifact when present."""
+    artifact_path = Path("model/anomaly_model.pkl")
+    response = client.get("/health")
+    assert response.status_code == 200
+    model_info = response.json()["anomalyModel"]
+
+    if artifact_path.exists():
+      assert model_info["trainedArtifactLoaded"] is True
+      assert model_info["featureColumns"] == [
+          "max_yoy_jump",
+          "min_yoy_drop",
+          "yoy_std",
+          "cv",
+          "max_share_of_total",
+      ]
 
 
 def test_evidence_schema_validation():

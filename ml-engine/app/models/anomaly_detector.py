@@ -11,8 +11,11 @@ Scoring: Base score of 100 with deductions for each anomaly detected.
 """
 
 import numpy as np
+import pickle
 from sklearn.ensemble import IsolationForest
+from pathlib import Path
 from typing import List, Dict, Tuple
+from app.config import settings
 
 # --- Domain boundary limits (thermodynamic / ecological ceilings) ---
 DOMAIN_LIMITS = {
@@ -55,12 +58,57 @@ class AnomalyDetector:
     """
 
     def __init__(self, contamination: float = 0.15, random_state: int = 42):
+        self.model_source = "synthetic_baseline"
+        self.feature_cols = ["co2_flux", "ndvi_delta", "tonnage_deviation_pct", "source_count"]
+        self.model = self._load_trained_model()
+
+        if self.model is not None:
+            return
+
         self.model = IsolationForest(
             n_estimators=100,
             contamination=contamination,
             random_state=random_state,
         )
         self._fit_baseline()
+
+    def _load_trained_model(self):
+        model_path = self._resolve_model_path(settings.MODEL_PATH)
+        if not model_path.exists():
+            return None
+
+        try:
+            with model_path.open("rb") as f:
+                artifact = pickle.load(f)
+
+            model = artifact.get("model") if isinstance(artifact, dict) else artifact
+            if not hasattr(model, "predict") or not hasattr(model, "decision_function"):
+                raise ValueError("model artifact must expose predict() and decision_function()")
+
+            if isinstance(artifact, dict) and artifact.get("feature_cols"):
+                self.feature_cols = list(artifact["feature_cols"])
+
+            self.model_source = str(model_path)
+            print(f"[AnomalyDetector] Loaded trained anomaly model from {model_path}")
+            return model
+        except Exception as exc:
+            print(f"[AnomalyDetector] Failed to load trained model from {model_path}: {exc}. Falling back to synthetic baseline.")
+            return None
+
+    def _resolve_model_path(self, raw_path: str) -> Path:
+        path = Path(raw_path)
+        if path.is_absolute():
+            return path
+
+        ml_root = Path(__file__).resolve().parents[2]
+        return ml_root / path
+
+    def info(self) -> Dict:
+        return {
+            "modelSource": self.model_source,
+            "featureColumns": self.feature_cols,
+            "trainedArtifactLoaded": self.model_source != "synthetic_baseline",
+        }
 
     def _fit_baseline(self):
         """
@@ -89,6 +137,16 @@ class AnomalyDetector:
         Extract a feature vector from raw evidence items.
         Returns shape (1, 4): [co2_flux, ndvi_delta, tonnage_dev_pct, source_count]
         """
+        if self._uses_trained_trajectory_features():
+            return self._extract_trained_trajectory_features(evidence_items, declared_tonnage)
+
+        return self._extract_telemetry_features(evidence_items, declared_tonnage)
+
+    def _extract_telemetry_features(
+        self,
+        evidence_items: List[Dict],
+        declared_tonnage: float,
+    ) -> np.ndarray:
         co2_flux = 0.0
         ndvi_delta = 0.0
         avg_tonnage = 0.0
@@ -120,6 +178,52 @@ class AnomalyDetector:
 
         return np.array([[co2_flux, ndvi_delta, tonnage_dev_pct, source_count]])
 
+    def _uses_trained_trajectory_features(self) -> bool:
+        expected = {"max_yoy_jump", "min_yoy_drop", "yoy_std", "cv", "max_share_of_total"}
+        return expected.issubset(set(self.feature_cols))
+
+    def _extract_trained_trajectory_features(
+        self,
+        evidence_items: List[Dict],
+        declared_tonnage: float,
+    ) -> np.ndarray:
+        tonnage_values = []
+        for item in evidence_items:
+            tonnage = self._safe_float(item.get("calculatedTonnage", 0.0))
+            if tonnage > 0:
+                tonnage_values.append(tonnage)
+
+        series = [float(declared_tonnage)] + tonnage_values
+        if len(series) < 2:
+            series.append(float(declared_tonnage))
+
+        changes = []
+        for previous, current in zip(series, series[1:]):
+            if previous > 0:
+                changes.append(((current - previous) / previous) * 100.0)
+
+        positive_changes = [change for change in changes if change > 0]
+        negative_changes = [change for change in changes if change < 0]
+        total_tonnage = sum(tonnage_values)
+
+        values_by_name = {
+            "max_yoy_jump": max(positive_changes, default=0.0),
+            "min_yoy_drop": min(negative_changes, default=0.0),
+            "yoy_std": float(np.std(changes)) if changes else 0.0,
+            "cv": float(np.std(tonnage_values) / np.mean(tonnage_values)) if tonnage_values and np.mean(tonnage_values) > 0 else 0.0,
+            "max_share_of_total": max(tonnage_values) / total_tonnage if total_tonnage > 0 else 1.0,
+        }
+
+        return np.array([[values_by_name.get(col, 0.0) for col in self.feature_cols]])
+
+    def _safe_float(self, value, default: float = 0.0) -> float:
+        try:
+            if value is None:
+                return default
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
     def detect(
         self,
         evidence_items: List[Dict],
@@ -142,10 +246,10 @@ class AnomalyDetector:
         anomaly_score = self.model.decision_function(features)[0]
 
         if prediction[0] == -1:
-            severity = min(30, int(abs(anomaly_score) * 100))
+            severity = min(30, max(10, int(abs(anomaly_score) * 100)))
             total_deduction += severity
             anomaly_flags.append(
-                f"ISOLATION_FOREST_OUTLIER: Multivariate feature vector flagged as statistical outlier "
+                f"TRAINED_ISOLATION_FOREST_OUTLIER: Multivariate feature vector flagged by {self.model_source} "
                 f"(anomaly_score={anomaly_score:.3f}, deduction={severity}pts)"
             )
 
@@ -161,8 +265,9 @@ class AnomalyDetector:
 
         # --- 3. Domain boundary checks ---
         limits = DOMAIN_LIMITS.get(project_type, DOMAIN_LIMITS["REFORESTATION"])
-        co2_flux = features[0, 0]
-        ndvi_delta = features[0, 1]
+        telemetry_features = self._extract_telemetry_features(evidence_items, declared_tonnage)
+        co2_flux = telemetry_features[0, 0]
+        ndvi_delta = telemetry_features[0, 1]
 
         if co2_flux > 0 and co2_flux > limits["max_co2_flux_ppm"]:
             total_deduction += 15
@@ -193,7 +298,7 @@ class AnomalyDetector:
             )
 
         # --- 4. Insufficient sources penalty ---
-        source_count = int(features[0, 3])
+        source_count = int(telemetry_features[0, 3])
         if source_count < 2:
             total_deduction += 15
             anomaly_flags.append(

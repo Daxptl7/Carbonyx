@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.score import router as score_router
+from app.api.score import anomaly_detector, router as score_router
 import uvicorn
 
 app = FastAPI(
@@ -25,9 +25,9 @@ def health_check():
     return {
         "status": "online",
         "service": "Carbonyx AI/ML Engine",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "anomalyModel": anomaly_detector.info()
     }
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
-
