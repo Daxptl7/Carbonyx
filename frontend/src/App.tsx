@@ -1,59 +1,68 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
-  Shield, 
-  Sparkles, 
-  Database, 
+  Users, 
+  ChevronDown, 
   Layers, 
-  CheckCircle2, 
-  AlertCircle, 
-  LogOut, 
-  Wallet, 
-  UserCheck, 
+  ShieldCheck, 
   ShoppingBag, 
-  Search,
-  Users,
-  ChevronDown,
-  Globe2
+  Search, 
+  Scale, 
+  Building2,
+  Leaf
 } from 'lucide-react';
-import { connectMetaMask, truncateAddress, WalletState } from './lib/web3';
 import { IssuerStudio } from './pages/IssuerStudio';
-import VerifierPortal from './pages/VerifierPortal';
-import Marketplace from './pages/Marketplace';
 import { BaselineExplorer } from './pages/BaselineExplorer';
+import VerifierPortal from './pages/VerifierPortal';
+import { AuditorExplorer } from './pages/AuditorExplorer';
+import Marketplace from './pages/Marketplace';
+import { BuyerPortfolio } from './pages/BuyerPortfolio';
+
+export interface WalletState {
+  address: string | null;
+  signer: any;
+  chainId: number | null;
+  isConnected: boolean;
+  error: string | null;
+}
+
+const truncateAddress = (addr: string | null) => {
+  if (!addr) return 'Not Connected';
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+};
 
 export const DEMO_PERSONAS = [
   {
     role: 'DEVELOPER',
     name: 'Alice (Project Developer)',
-    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-    did: 'did:carbonyx:0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
+    address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    did: 'did:carbonyx:0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
     badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
   },
   {
     role: 'VERIFIER',
     name: 'Bob (Staked Verifier & Auditor)',
-    address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-    did: 'did:carbonyx:0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
+    address: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
+    did: 'did:carbonyx:0x90f79bf6eb2c4f870365e785982e1f101e93b906',
     badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30'
   },
   {
     role: 'BUYER',
     name: 'Acme CleanTech ESG (Corporate Buyer)',
-    address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
-    did: 'did:carbonyx:0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc',
+    address: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
+    did: 'did:carbonyx:0x15d34aaf54267db7d7c367839aaf71a00a2c6a65',
     badgeColor: 'bg-sky-500/20 text-sky-400 border-sky-500/30'
   },
   {
     role: 'ADMIN',
-    name: 'Registry Relayer / Admin',
-    address: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
-    did: 'did:carbonyx:0x90f79bf6eb2c4f870365e785982e1f101e93b906',
+    name: 'Registry Relayer / DAO Admin',
+    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    did: 'did:carbonyx:0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
     badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30'
   }
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'issuer' | 'explorer' | 'verifier' | 'marketplace'>('issuer');
+  const [activeTab, setActiveTab] = useState<'issuer' | 'explorer' | 'verifier' | 'auditor' | 'marketplace' | 'portfolio'>('issuer');
   const [selectedPersona, setSelectedPersona] = useState(DEMO_PERSONAS[0]);
   const [showPersonaMenu, setShowPersonaMenu] = useState(false);
 
@@ -93,7 +102,7 @@ export default function App() {
                 CARBONYX
               </span>
               <span className="ml-2 text-[10px] uppercase px-2 py-0.5 rounded-full bg-[#10B981]/20 text-[#10B981] font-mono border border-[#10B981]/30 hidden sm:inline-block">
-                Patent Protocol C3
+                Patent Protocol C4
               </span>
             </div>
           </div>
@@ -146,7 +155,7 @@ export default function App() {
 
         {/* Persona Navigation Tabs */}
         <nav className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto max-w-full">
-          {(['issuer', 'explorer', 'verifier', 'marketplace'] as const).map((tab) => (
+          {(['issuer', 'explorer', 'verifier', 'auditor', 'marketplace', 'portfolio'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -159,7 +168,9 @@ export default function App() {
               {tab === 'issuer' && '🌱 Issuer Studio'}
               {tab === 'explorer' && '🔍 Baseline Explorer'}
               {tab === 'verifier' && '🛡️ Verifier Portal'}
+              {tab === 'auditor' && '⚖️ Auditor Provenance'}
               {tab === 'marketplace' && '🛒 Marketplace'}
+              {tab === 'portfolio' && '💼 Buyer Portfolio'}
             </button>
           ))}
         </nav>
@@ -198,8 +209,16 @@ export default function App() {
           <VerifierPortal walletAddress={wallet.address || selectedPersona.address} />
         )}
 
+        {activeTab === 'auditor' && (
+          <AuditorExplorer walletAddress={wallet.address || selectedPersona.address} backendUrl={backendUrl} />
+        )}
+
         {activeTab === 'marketplace' && (
           <Marketplace walletAddress={wallet.address || selectedPersona.address} />
+        )}
+
+        {activeTab === 'portfolio' && (
+          <BuyerPortfolio walletAddress={wallet.address || selectedPersona.address} backendUrl={backendUrl} />
         )}
       </main>
 
