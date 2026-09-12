@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Sparkles, Database, Layers, CheckCircle2, AlertCircle, LogOut, Wallet } from 'lucide-react';
+import { Shield, Sparkles, Database, Layers, CheckCircle2, AlertCircle, LogOut, Wallet, UserCheck, ShoppingBag, Search } from 'lucide-react';
 import { connectMetaMask, truncateAddress, WalletState } from './lib/web3';
+import { IssuerStudio } from './pages/IssuerStudio';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'issuer' | 'verifier' | 'marketplace' | 'explorer'>('issuer');
@@ -13,7 +14,8 @@ export default function App() {
   });
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Check if wallet was already connected
+  const backendUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000';
+
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
       const ethereum = (window as any).ethereum;
@@ -29,6 +31,10 @@ export default function App() {
         } else {
           handleConnect();
         }
+      });
+
+      ethereum.on('chainChanged', () => {
+        handleConnect();
       });
     }
   }, []);
@@ -142,48 +148,68 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Hero & Status Dashboard */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col items-center justify-center text-center">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#06B6D4]/10 border border-[#06B6D4]/20 text-[#06B6D4] text-xs font-mono mb-4">
-          <Sparkles className="w-3.5 h-3.5" />
-          Phase C1 Scaffolding Live & Ready
-        </div>
-        
-        <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4 max-w-3xl leading-tight">
-          Evidence-First Verification Before Carbon Credit Minting
-        </h1>
-        
-        <p className="text-slate-400 max-w-2xl text-base md:text-lg mb-8">
-          Eliminating phantom credits and double-counting through cryptographic multi-source corroboration, AI anomaly detection, verifier staking, and escrow settlements.
-        </p>
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8">
+        {activeTab === 'issuer' && (
+          <IssuerStudio wallet={wallet} backendUrl={backendUrl} />
+        )}
 
-        {/* 4 Persona Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full text-left mt-2">
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass hover:border-[#10B981]/50 transition-all">
-            <Database className="w-6 h-6 text-[#10B981] mb-3" />
-            <h3 className="font-bold text-white mb-1">Multi-Source Ingestion</h3>
-            <p className="text-slate-400 text-sm">IoT flux sensors, Sentinel-2 satellite NDVI & operational logs.</p>
+        {activeTab === 'verifier' && (
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center max-w-2xl mx-auto space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center mx-auto">
+              <UserCheck className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-white">Verifier Staking Portal</h2>
+            <p className="text-sm text-slate-400">
+              Assigned verifiers audit anomalous low-confidence carbon credit bundles with 50% economic staking collateral slashing.
+            </p>
+            <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+              Slated for Phase C3 Deployment
+            </span>
           </div>
-          
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass hover:border-[#06B6D4]/50 transition-all">
-            <Sparkles className="w-6 h-6 text-[#06B6D4] mb-3" />
-            <h3 className="font-bold text-white mb-1">AI Anomaly Engine</h3>
-            <p className="text-slate-400 text-sm">Isolation Forest & Z-Score checks with plain-English XAI reports.</p>
+        )}
+
+        {activeTab === 'marketplace' && (
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center max-w-2xl mx-auto space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+              <ShoppingBag className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-white">Verified Offset Marketplace & Escrow</h2>
+            <p className="text-sm text-slate-400">
+              Browse cryptographically verified ERC-721 carbon certificates with atomic custodial escrow settlement.
+            </p>
+            <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              Slated for Phase C3/C4 Deployment
+            </span>
           </div>
-          
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass hover:border-[#F59E0B]/50 transition-all">
-            <Shield className="w-6 h-6 text-[#F59E0B] mb-3" />
-            <h3 className="font-bold text-white mb-1">Verifier Staking</h3>
-            <p className="text-slate-400 text-sm">Collateral locks & automated 50% slashing for fraudulent audits.</p>
+        )}
+
+        {activeTab === 'explorer' && (
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center max-w-2xl mx-auto space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mx-auto">
+              <Search className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-white">Auditor Cryptographic Provenance Explorer</h2>
+            <p className="text-sm text-slate-400">
+              Verify Merkle proofs, historical emissions offsets, and on-chain lifecycle burn states across all issued certificates.
+            </p>
+            <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              Slated for Phase C4 Deployment
+            </span>
           </div>
-          
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass hover:border-[#8B5CF6]/50 transition-all">
-            <Layers className="w-6 h-6 text-[#8B5CF6] mb-3" />
-            <h3 className="font-bold text-white mb-1">Dynamic NFT Escrow</h3>
-            <p className="text-slate-400 text-sm">Guaranteed buyer refunds & permanent retirement burn proofs.</p>
-          </div>
-        </div>
+        )}
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-white/10 px-8 py-5 text-center text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2 max-w-7xl mx-auto w-full">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[#10B981]" />
+          <span>Carbonyx Protocol • 12-Module Process Architecture</span>
+        </div>
+        <div>
+          <span>Foundry Contracts • Supabase Vault • FastAPI ML • React Web3</span>
+        </div>
+      </footer>
     </div>
   );
 }
