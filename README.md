@@ -5,6 +5,25 @@
 
 ---
 
+## 🚀 Live Deployment — Ethereum Sepolia Testnet
+
+All 4 smart contracts are **live, verified, and open-source** on Sepolia:
+
+| Contract | Address | Etherscan |
+|---|---|---|
+| **CarbonCreditNFT** | `0x201cF066262ad3B2544bE085860246cD41BdeC21` | [View ↗](https://sepolia.etherscan.io/address/0x201cf066262ad3b2544be085860246cd41bdec21#code) |
+| **VerifierStakingLedger** | `0xa78Dbf1D3E4351304F2A9BcE985E78dA2fDaBE8D` | [View ↗](https://sepolia.etherscan.io/address/0xa78dbf1d3e4351304f2a9bce985e78da2fdabe8d#code) |
+| **EscrowSettlement** | `0x4BFfF0e1661AcFC490C40FA60819Bd4Cf048F533` | [View ↗](https://sepolia.etherscan.io/address/0x4bfff0e1661acfc490c40fa60819bd4cf048f533#code) |
+| **CarbonRegistry** | `0xD6d094Ce5743e8aC8500F4C3bbEC95347b31dcE0` | [View ↗](https://sepolia.etherscan.io/address/0xd6d094ce5743e8ac8500f4c3bbec95347b31dce0#code) |
+
+- **Network:** Ethereum Sepolia (Chain ID: 11155111)
+- **Deployed:** September 12, 2026
+- **Deployer:** [0xc57aB1ceF012CC669C89cA4Efd929b807BD15a4c](https://sepolia.etherscan.io/address/0xc57aB1ceF012CC669C89cA4Efd929b807BD15a4c)
+- **Block Explorer:** [Sepolia Etherscan](https://sepolia.etherscan.io)
+- **All contracts source-verified ✅** via Etherscan & Sourcify
+
+---
+
 ## 🏗️ System Architecture
 
 ```
