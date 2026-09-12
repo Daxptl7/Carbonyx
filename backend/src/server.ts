@@ -11,6 +11,8 @@ import creditsRouter from './routes/credits.routes';
 import verifiersRouter from './routes/verifiers.routes';
 import marketplaceRouter from './routes/marketplace.routes';
 import satelliteRouter from './routes/satellite.routes';
+import disputesRouter from './routes/disputes.routes';
+import auditRouter from './routes/audit.routes';
 
 dotenv.config();
 
@@ -30,6 +32,8 @@ app.use('/api/credits', creditsRouter);
 app.use('/api/verifiers', verifiersRouter);
 app.use('/api/marketplace', marketplaceRouter);
 app.use('/api/satellite', satelliteRouter);
+app.use('/api/disputes', disputesRouter);
+app.use('/api/audit', auditRouter);
 
 app.get('/health', async (_req: Request, res: Response) => {
   let supabaseConnected = false;
