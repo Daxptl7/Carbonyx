@@ -160,6 +160,7 @@ export interface LegalComplianceCertificate {
     vintageYear: number;
     serializedNftId: string;
     issuanceModel: string;
+    retirementPurpose: string;
     merkleRootCommitment: string;
     onChainBurnTx: string;
   };
@@ -413,7 +414,7 @@ const initialSeedProjects: LifecycleProject[] = [
     aiConfidenceScore: 98,
     riskLevel: 'LOW',
     createdAt: new Date(Date.now() - 40 * 86400000).toISOString(),
-    lifecycleState: 'RETIRED',
+    lifecycleState: 'LISTED_ON_MARKETPLACE',
     baselineStartTime: new Date(Date.now() - 40 * 86400000).toISOString(),
     baselineDurationDays: 14,
     baselineFastForwarded: true,
@@ -578,10 +579,14 @@ class ProjectFlowStore {
   }
 
   public getVerifierQueue(verifierAddress?: string | null): LifecycleProject[] {
-    // Return projects that are in VERIFIER_PENDING_STAKE, VERIFIER_AUDITING, or AUDITED
-    return this.projects.filter((p) =>
-      ['VERIFIER_PENDING_STAKE', 'VERIFIER_AUDITING', 'AUDITED'].includes(p.lifecycleState)
-    );
+    return this.projects.filter((project) => {
+      const isActionable = ['VERIFIER_PENDING_STAKE', 'VERIFIER_AUDITING', 'AUDITED'].includes(
+        project.lifecycleState
+      );
+      if (!isActionable) return false;
+      if (!verifierAddress) return true;
+      return project.assignedVerifier.address.toLowerCase() === verifierAddress.toLowerCase();
+    });
   }
 
   public getMarketplaceNfts(): Array<{ project: LifecycleProject; nft: CreditNftRecord }> {
@@ -682,7 +687,7 @@ class ProjectFlowStore {
    */
   public advanceBaselineWindow(projectId: string): boolean {
     const project = this.getProjectById(projectId);
-    if (!project) return false;
+    if (!project || project.lifecycleState !== 'BASELINE_WINDOW') return false;
 
     // Move to next state
     project.lifecycleState = 'VERIFIER_PENDING_STAKE';
@@ -713,7 +718,12 @@ class ProjectFlowStore {
    */
   public passToNextVerifier(projectId: string, reason?: string): VerifierPoolMember | null {
     const project = this.getProjectById(projectId);
-    if (!project) return null;
+    if (
+      !project ||
+      !['VERIFIER_PENDING_STAKE', 'VERIFIER_AUDITING'].includes(project.lifecycleState)
+    ) {
+      return null;
+    }
 
     const currentVerifierId = project.assignedVerifier.id;
     if (!project.passedVerifierIds.includes(currentVerifierId)) {
@@ -746,7 +756,14 @@ class ProjectFlowStore {
    */
   public stakeAndAcceptAudit(projectId: string, stakeEth: number = 0.5): boolean {
     const project = this.getProjectById(projectId);
-    if (!project) return false;
+    if (
+      !project ||
+      project.lifecycleState !== 'VERIFIER_PENDING_STAKE' ||
+      !Number.isFinite(stakeEth) ||
+      stakeEth < project.assignedVerifier.minimumStakeEth
+    ) {
+      return false;
+    }
 
     project.lifecycleState = 'VERIFIER_AUDITING';
     project.verifierStakedEth = stakeEth;
@@ -776,7 +793,7 @@ class ProjectFlowStore {
     }
   ): boolean {
     const project = this.getProjectById(projectId);
-    if (!project) return false;
+    if (!project || project.lifecycleState !== 'VERIFIER_AUDITING') return false;
 
     if (!params.approved) {
       // If rejected during audit, rotate to next verifier or fail
@@ -819,9 +836,19 @@ class ProjectFlowStore {
     }
   ): CreditNftRecord[] {
     const project = this.getProjectById(projectId);
-    if (!project) return [];
+    if (!project || project.lifecycleState !== 'AUDITED') return [];
 
     const { totalTonnage, nftCount, issuanceModel, vestingMonths } = params;
+    if (
+      !Number.isFinite(totalTonnage) ||
+      !Number.isInteger(nftCount) ||
+      totalTonnage <= 0 ||
+      totalTonnage > project.claimedAnnualTonnage ||
+      nftCount <= 0 ||
+      nftCount > 500
+    ) {
+      return [];
+    }
     const tonnagePerNft = Number((totalTonnage / nftCount).toFixed(2));
     const startTokenId = 5000 + Math.floor(Math.random() * 4000);
     const txHash = `0xmint_nfts_${Date.now().toString(16)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -865,14 +892,21 @@ class ProjectFlowStore {
    */
   public listNftsOnMarketplace(projectId: string, pricePerNftEth: number): boolean {
     const project = this.getProjectById(projectId);
-    if (!project) return false;
+    if (
+      !project ||
+      !['CREDITS_ISSUED', 'LISTED_ON_MARKETPLACE'].includes(project.lifecycleState) ||
+      !Number.isFinite(pricePerNftEth) ||
+      pricePerNftEth <= 0
+    ) {
+      return false;
+    }
 
     project.listingPricePerNftEth = pricePerNftEth;
     project.isListedOnMarketplace = true;
     project.lifecycleState = 'LISTED_ON_MARKETPLACE';
 
     project.nfts.forEach((nft) => {
-      if (nft.status === 'MINTED') {
+      if (nft.status === 'MINTED' || nft.status === 'LISTED') {
         nft.status = 'LISTED';
         nft.isListed = true;
         nft.priceEth = pricePerNftEth;
@@ -904,7 +938,17 @@ class ProjectFlowStore {
     if (!project) return null;
 
     const nft = project.nfts.find((n) => n.tokenId === tokenId);
-    if (!nft || nft.status !== 'LISTED') return null;
+    if (
+      !nft ||
+      nft.status !== 'LISTED' ||
+      !nft.isListed ||
+      !nft.priceEth ||
+      nft.priceEth <= 0 ||
+      !buyer.address.trim() ||
+      !buyer.organizationName.trim()
+    ) {
+      return null;
+    }
 
     const purchaseTx = `0xsettle_p2p_${Date.now().toString(16)}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -958,7 +1002,14 @@ class ProjectFlowStore {
     if (!project) return null;
 
     const nft = project.nfts.find((n) => n.tokenId === tokenId);
-    if (!nft) return null;
+    if (
+      !nft ||
+      nft.status !== 'PURCHASED' ||
+      !params.beneficiaryLegalName.trim() ||
+      !params.retirementReason.trim()
+    ) {
+      return null;
+    }
 
     const burnTx = `0xburn_permanent_${Date.now().toString(16)}_${Math.random().toString(36).slice(2, 8)}`;
     const certId = `CRX-LEGAL-CERT-2026-${nft.tokenId}`;
@@ -969,7 +1020,13 @@ class ProjectFlowStore {
     nft.retirementReason = params.retirementReason;
     nft.legalCertificateId = certId;
 
-    project.lifecycleState = 'RETIRED';
+    const hasListedCredits = project.nfts.some((credit) => credit.status === 'LISTED');
+    const hasPurchasedCredits = project.nfts.some((credit) => credit.status === 'PURCHASED');
+    project.lifecycleState = hasListedCredits
+      ? 'LISTED_ON_MARKETPLACE'
+      : hasPurchasedCredits
+        ? 'PURCHASED'
+        : 'RETIRED';
     this.saveProjects();
 
     this.addNotification({
@@ -1001,6 +1058,10 @@ class ProjectFlowStore {
     const jurisdiction = params?.beneficiaryJurisdiction || 'United States / Delaware & Global Scope';
     const reason =
       params?.retirementReason || nft.retirementReason || 'Scope 1 & 2 Corporate Greenhouse Gas Neutrality';
+    const stableEntityNumber = Array.from(`${beneficiaryName}:${nft.tokenId}`).reduce(
+      (value, character) => (value * 31 + character.charCodeAt(0)) % 900000,
+      0
+    ) + 100000;
 
     return {
       certificateId: certId,
@@ -1015,7 +1076,7 @@ class ProjectFlowStore {
       ],
       beneficiary: {
         legalName: beneficiaryName,
-        organizationId: `CORP-LEI-${Math.floor(100000 + Math.random() * 900000)}`,
+        organizationId: `CRX-ENTITY-${stableEntityNumber}`,
         jurisdiction,
         walletAddress: nft.buyerAddress || '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955'
       },
@@ -1042,6 +1103,7 @@ class ProjectFlowStore {
         vintageYear: nft.vintageYear,
         serializedNftId: `#${nft.tokenId} (${nft.serialNumber})`,
         issuanceModel: nft.issuanceModel === 'UPFRONT' ? 'Upfront Certified Removal' : 'Linear Vintage Vesting',
+        retirementPurpose: reason,
         merkleRootCommitment: project.merkleRoot,
         onChainBurnTx: nft.burnTxHash || '0xburn_permanent_ledger_record'
       },

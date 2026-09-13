@@ -451,6 +451,143 @@
   -webkit-backdrop-filter: none !important;
 }
 
+/* Lifecycle surfaces added by the end-to-end flow use the shared light dashboard system. */
+.oddox-dashboard-theme main .project-lifecycle-card,
+.oddox-dashboard-theme main .verifier-workflow-panel {
+  background: #ffffff !important;
+  background-image: none !important;
+  border-color: #d9d9d9 !important;
+  box-shadow: 0 1px 3px rgba(34, 34, 34, 0.08) !important;
+}
+
+.oddox-dashboard-theme main [class~="bg-black/50"] {
+  background: #f7f7f7 !important;
+}
+
+/* The certificate is a document surface, not a dark dashboard card. */
+.oddox-dashboard-theme main .compliance-shell,
+.oddox-dashboard-theme main .compliance-document {
+  background: #ffffff !important;
+  background-image: none !important;
+}
+
+.oddox-dashboard-theme main .compliance-document [class~="text-white"],
+.oddox-dashboard-theme main .compliance-document [class~="text-slate-200"],
+.oddox-dashboard-theme main .compliance-document [class~="text-slate-300"] {
+  color: #222222 !important;
+}
+
+.oddox-dashboard-theme main .compliance-document [class~="text-emerald-300"],
+.oddox-dashboard-theme main .compliance-document [class~="text-emerald-400"] {
+  color: #047857 !important;
+}
+
+.oddox-dashboard-theme main .compliance-document [class~="text-teal-300"],
+.oddox-dashboard-theme main .compliance-document [class~="text-teal-400"] {
+  color: #0f766e !important;
+}
+
+.oddox-dashboard-theme main .compliance-document [class~="text-amber-200"],
+.oddox-dashboard-theme main .compliance-document [class~="text-amber-300"],
+.oddox-dashboard-theme main .compliance-document [class~="text-amber-400"] {
+  color: #92400e !important;
+}
+
+.oddox-dashboard-theme main .compliance-document [class~="bg-emerald-950/30"] {
+  background: #ecfdf5 !important;
+}
+
+.compliance-continuation {
+  display: none;
+}
+
+@page {
+  size: A4;
+  margin: 9mm;
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  body:has(.compliance-modal) .oddox-dashboard-theme > *:not(main),
+  body:has(.compliance-modal) .oddox-dashboard-theme main > div > div > *:not(.compliance-modal) {
+    display: none !important;
+  }
+
+  body:has(.compliance-modal) .oddox-dashboard-theme,
+  body:has(.compliance-modal) .oddox-dashboard-theme main,
+  body:has(.compliance-modal) .oddox-dashboard-theme main > div,
+  body:has(.compliance-modal) .oddox-dashboard-theme main > div > div {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .compliance-modal {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    display: block !important;
+    width: 100% !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+  }
+
+  .compliance-shell {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .compliance-actions {
+    display: none !important;
+  }
+
+  .compliance-document {
+    width: 100% !important;
+    padding: 7mm !important;
+    border: 1.25pt solid #0f172a !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    color: #0f172a !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .compliance-document > * {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .compliance-continuation {
+    display: flex !important;
+    align-items: center;
+    padding-bottom: 3mm;
+    border-bottom: 1px solid #cbd5e1;
+    color: #64748b;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    break-before: page;
+    page-break-before: always;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

@@ -555,7 +555,7 @@ export default function VerifierPortal({ walletAddress }: { walletAddress: strin
 
               {/* STATE 3: AUDITED -> EXCLUSIVE VERIFIER NFT ISSUANCE STUDIO */}
               {isAuditedReadyForMint && (
-                <div className="p-6 rounded-2xl bg-gradient-to-b from-emerald-950/30 to-slate-900/90 border-2 border-emerald-500/50 space-y-5 animate-fadeIn shadow-2xl">
+                <div className="verifier-workflow-panel p-6 rounded-2xl bg-gradient-to-b from-emerald-950/30 to-slate-900/90 border-2 border-emerald-500/50 space-y-5 animate-fadeIn shadow-2xl">
                   <div className="flex items-center justify-between border-b border-white/10 pb-3">
                     <div className="flex items-center gap-2.5">
                       <Sparkles className="w-6 h-6 text-emerald-400" />

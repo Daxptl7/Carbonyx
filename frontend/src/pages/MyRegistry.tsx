@@ -304,7 +304,7 @@ export default function MyRegistry({ wallet, backendUrl }: MyRegistryProps) {
             return (
               <div
                 key={project.id}
-                className="rounded-2xl border border-white/10 bg-[#0B0F17]/80 p-5 space-y-4 hover:border-emerald-500/30 transition-all shadow-xl"
+                className="project-lifecycle-card rounded-2xl border border-white/10 bg-[#0B0F17]/80 p-5 space-y-4 hover:border-emerald-500/30 transition-all shadow-xl"
               >
                 {/* Project Header Info */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-white/10 pb-4">

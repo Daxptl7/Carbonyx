@@ -1,16 +1,12 @@
-import React from 'react';
-import { 
-  ShieldCheck, 
-  Printer, 
-  X, 
-  ExternalLink, 
-  QrCode, 
-  FileCheck2, 
-  Lock, 
-  CheckCircle2, 
-  Building2, 
-  Scale, 
-  Award,
+import React, { useEffect, useId } from 'react';
+import {
+  ShieldCheck,
+  Printer,
+  X,
+  QrCode,
+  CheckCircle2,
+  Building2,
+  Scale,
   Globe2
 } from 'lucide-react';
 import { LegalComplianceCertificate } from '../lib/projectFlowStore';
@@ -24,13 +20,35 @@ export const LegalComplianceCertificateModal: React.FC<LegalComplianceCertificat
   certificate,
   onClose
 }) => {
+  const titleId = useId();
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
   const handlePrint = () => {
+    const previousTitle = document.title;
+    document.title = `${certificate.certificateId} - Carbonyx retirement certificate`;
     window.print();
+    window.setTimeout(() => {
+      document.title = previousTitle;
+    }, 250);
   };
 
   const formatDate = (isoString: string) => {
     try {
       const date = new Date(isoString);
+      if (Number.isNaN(date.getTime())) return isoString;
       return date.toLocaleDateString('en-US', {
         day: '2-digit',
         month: 'long',
@@ -45,26 +63,37 @@ export const LegalComplianceCertificateModal: React.FC<LegalComplianceCertificat
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-2 sm:p-4 backdrop-blur-md overflow-y-auto print:p-0 print:bg-white print:static print:z-auto">
+    <div
+      className="compliance-modal fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/70 p-2 backdrop-blur-sm sm:p-5"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       {/* Container */}
-      <div className="relative w-full max-w-4xl rounded-3xl border border-emerald-500/30 bg-[#070B13] p-6 sm:p-10 text-slate-200 shadow-2xl space-y-8 my-auto print:border-none print:shadow-none print:bg-white print:text-black print:p-8 print:max-w-none print:rounded-none">
+      <div
+        className="compliance-shell relative my-auto w-full max-w-4xl space-y-5 rounded-3xl border border-slate-200 bg-white p-4 text-slate-800 shadow-2xl sm:p-7"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         
         {/* Action Header - Hidden during print */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-4 print:hidden">
-          <div className="flex items-center gap-2 text-xs font-mono text-emerald-400">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+        <div className="compliance-actions flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 font-mono text-[10px] font-bold tracking-wider text-emerald-700 sm:text-xs">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
             OFFICIAL REGULATORY COMPLIANCE DOSSIER
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-400 transition-all"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[#15ed48] px-4 py-2 text-xs font-extrabold text-slate-950 shadow-sm transition hover:bg-[#12d23f] sm:flex-none"
             >
               <Printer className="h-4 w-4" /> Print / Save as Official PDF
             </button>
             <button
               onClick={onClose}
-              className="rounded-full border border-white/10 p-2 text-slate-400 hover:bg-white/10 hover:text-white transition-all"
+              className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
               aria-label="Close Certificate"
             >
               <X className="h-4 w-4" />
@@ -73,11 +102,11 @@ export const LegalComplianceCertificateModal: React.FC<LegalComplianceCertificat
         </div>
 
         {/* Certificate Paper Document Body */}
-        <div className="rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-b from-slate-900/90 via-[#070E1A] to-slate-950 p-6 sm:p-8 space-y-6 relative overflow-hidden print:border-2 print:border-slate-800 print:bg-white print:text-slate-900">
+        <div className="compliance-document relative space-y-5 overflow-hidden rounded-2xl border-2 border-slate-900 bg-white p-4 text-slate-900 sm:p-8">
           
           {/* Subtle Background Watermark Stamp */}
-          <div className="absolute right-[-40px] bottom-[-40px] opacity-[0.03] print:opacity-[0.06] pointer-events-none select-none">
-            <ShieldCheck className="w-96 h-96 text-emerald-400 print:text-slate-900" />
+          <div className="pointer-events-none absolute bottom-[-40px] right-[-40px] select-none opacity-[0.035]">
+            <ShieldCheck className="h-72 w-72 text-emerald-900 sm:h-96 sm:w-96" />
           </div>
 
           {/* Document Top Authority Bar */}
@@ -90,7 +119,7 @@ export const LegalComplianceCertificateModal: React.FC<LegalComplianceCertificat
                 <div className="text-[11px] font-mono font-black tracking-widest text-emerald-400 uppercase print:text-emerald-800">
                   Carbonyx Global Registry & MRV Protocol
                 </div>
-                <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase print:text-slate-950 font-serif">
+                <h1 id={titleId} className="font-serif text-xl font-black uppercase tracking-tight text-slate-950 sm:text-2xl">
                   Certificate of Carbon Offset Retirement
                 </h1>
                 <div className="text-[10px] text-slate-400 print:text-slate-600">
@@ -99,9 +128,9 @@ export const LegalComplianceCertificateModal: React.FC<LegalComplianceCertificat
               </div>
             </div>
 
-            <div className="text-left sm:text-right font-mono space-y-0.5">
+            <div className="shrink-0 space-y-0.5 text-left font-mono sm:w-44 sm:text-right">
               <div className="text-[10px] uppercase font-bold text-slate-400 print:text-slate-600">Certificate UUID</div>
-              <div className="text-xs font-black text-emerald-300 print:text-slate-900">{certificate.certificateId}</div>
+              <div className="break-words text-xs font-black text-emerald-800">{certificate.certificateId}</div>
               <div className="text-[10px] text-slate-500 print:text-slate-600">Serial: {certificate.serialNumber}</div>
             </div>
           </div>
@@ -117,7 +146,10 @@ export const LegalComplianceCertificateModal: React.FC<LegalComplianceCertificat
                 <span className="text-lg font-bold text-emerald-400 print:text-emerald-800">Metric Tonnes CO₂e</span>
               </div>
               <div className="mt-1 text-xs text-slate-300 print:text-slate-700">
-                Vintage Year: <strong className="text-white print:text-slate-900">{certificate.carbonAccounting.vintageYear}</strong> · Token #{certificate.carbonAccounting.serializedNftId}
+                Vintage Year: <strong className="text-white print:text-slate-900">{certificate.carbonAccounting.vintageYear}</strong> · Token {certificate.carbonAccounting.serializedNftId}
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                Retirement purpose: <strong className="text-slate-800">{certificate.carbonAccounting.retirementPurpose}</strong>
               </div>
             </div>
 
@@ -144,16 +176,16 @@ export const LegalComplianceCertificateModal: React.FC<LegalComplianceCertificat
                   <span className="font-bold text-white print:text-slate-950">{certificate.beneficiary.legalName}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 print:text-slate-600">Legal Entity Identifier (LEI): </span>
+                  <span className="text-slate-500 print:text-slate-600">Registry Entity ID: </span>
                   <span className="font-mono text-slate-300 print:text-slate-800">{certificate.beneficiary.organizationId}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 print:text-slate-600">Jurisdiction of Filing: </span>
                   <span className="text-slate-300 print:text-slate-800">{certificate.beneficiary.jurisdiction}</span>
                 </div>
-                <div className="truncate">
+                <div className="min-w-0">
                   <span className="text-slate-500 print:text-slate-600">Settling Wallet: </span>
-                  <span className="font-mono text-[10px] text-emerald-300 print:text-emerald-800">{certificate.beneficiary.walletAddress}</span>
+                  <span className="mt-0.5 block break-all font-mono text-[10px] text-emerald-800">{certificate.beneficiary.walletAddress}</span>
                 </div>
               </div>
             </div>
@@ -186,8 +218,8 @@ export const LegalComplianceCertificateModal: React.FC<LegalComplianceCertificat
           </div>
 
           {/* Verifier Proof of Stake Attestation Box */}
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs space-y-2 print:border-amber-300 print:bg-amber-50">
-            <div className="flex items-center justify-between">
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs space-y-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2 font-bold text-amber-300 print:text-amber-900">
                 <Scale className="w-4 h-4 text-amber-400 print:text-amber-700" />
                 <span>INDEPENDENT VERIFIER AUDIT & PROOF-OF-STAKE (PoS) ATTESTATION</span>
@@ -201,41 +233,48 @@ export const LegalComplianceCertificateModal: React.FC<LegalComplianceCertificat
                 <span className="text-slate-500 print:text-slate-600">Lead Auditor: </span>
                 <strong className="text-white print:text-slate-950">{certificate.verificationAttestation.verifierName}</strong> ({certificate.verificationAttestation.verifierOrg})
               </div>
-              <div className="truncate">
+              <div className="min-w-0">
                 <span className="text-slate-500 print:text-slate-600">Verifier DID: </span>
-                <span className="font-mono text-[10px] text-amber-200 print:text-amber-900">{certificate.verificationAttestation.verifierDid}</span>
+                <span className="break-all font-mono text-[10px] text-amber-900">{certificate.verificationAttestation.verifierDid}</span>
               </div>
-              <div className="truncate">
+              <div className="min-w-0">
                 <span className="text-slate-500 print:text-slate-600">Audit Attestation Digest: </span>
-                <span className="font-mono text-[10px] text-slate-300 print:text-slate-800">{certificate.verificationAttestation.auditReportDigest}</span>
+                <span className="break-all font-mono text-[10px] text-slate-800">{certificate.verificationAttestation.auditReportDigest}</span>
               </div>
-              <div className="truncate">
+              <div className="min-w-0">
                 <span className="text-slate-500 print:text-slate-600">Stake Escrow Tx: </span>
-                <span className="font-mono text-[10px] text-slate-300 print:text-slate-800">{certificate.verificationAttestation.posStakeTxHash}</span>
+                <span className="break-all font-mono text-[10px] text-slate-800">{certificate.verificationAttestation.posStakeTxHash}</span>
               </div>
             </div>
           </div>
 
           {/* Cryptographic Ledger Commitments */}
-          <div className="rounded-xl border border-white/10 bg-black/40 p-4 font-mono text-[11px] space-y-1.5 print:border-slate-300 print:bg-slate-100 print:text-slate-900">
+          <div className="rounded-xl border border-slate-300 bg-slate-50 p-4 font-mono text-[11px] space-y-2 text-slate-900">
             <div className="text-[10px] uppercase font-bold text-slate-400 print:text-slate-600 tracking-wider">
               Cryptographic Audit Trail & State Proofs
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 truncate">
+            <div className="grid min-w-0 gap-1 sm:grid-cols-[auto_1fr] sm:items-start sm:gap-4">
               <span className="text-slate-500 print:text-slate-600">Merkle Root Commitment:</span>
-              <span className="text-emerald-300 print:text-slate-900 truncate max-w-md">{certificate.carbonAccounting.merkleRootCommitment}</span>
+              <span className="break-all text-left text-emerald-800 sm:text-right">{certificate.carbonAccounting.merkleRootCommitment}</span>
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 truncate">
+            <div className="grid min-w-0 gap-1 sm:grid-cols-[auto_1fr] sm:items-start sm:gap-4">
               <span className="text-slate-500 print:text-slate-600">Permanent Burn Transaction:</span>
-              <span className="text-teal-300 print:text-slate-900 truncate max-w-md">{certificate.carbonAccounting.onChainBurnTx}</span>
+              <span className="break-all text-left text-teal-800 sm:text-right">{certificate.carbonAccounting.onChainBurnTx}</span>
             </div>
           </div>
 
           {/* Statutory Legal Declarations */}
+          <div className="compliance-continuation">
+            <span>{certificate.certificateId} - Compliance and statutory declarations - Page 2 of 2</span>
+          </div>
           <div className="space-y-2 text-[10px] text-slate-400 print:text-slate-700 leading-relaxed border-t border-white/10 pt-4 print:border-slate-300">
             <p>
               <strong className="text-slate-200 print:text-slate-900">Non-Duplication & Permanent Retirement: </strong>
               {certificate.legalClauses.nonDuplicationClause}
+            </p>
+            <p>
+              <strong className="text-slate-200 print:text-slate-900">Additionality & Evidence Basis: </strong>
+              {certificate.legalClauses.additionalityClause}
             </p>
             <p>
               <strong className="text-slate-200 print:text-slate-900">Direct Settlement (0% Commission): </strong>
@@ -267,9 +306,9 @@ export const LegalComplianceCertificateModal: React.FC<LegalComplianceCertificat
                 <QrCode className="w-10 h-10" />
               </div>
               <div className="text-[10px] text-slate-400 print:text-slate-600 leading-tight">
-                <div>Scan QR to independently verify cryptographic</div>
-                <div>validity on Sepolia Ethereum blockchain.</div>
-                <div className="font-mono text-[9px] text-emerald-400 print:text-emerald-800 mt-0.5">https://carbonyx.org/verify/{certificate.certificateId}</div>
+                <div>Use this reference to independently verify cryptographic</div>
+                <div>validity on the Sepolia Ethereum blockchain.</div>
+                <div className="mt-0.5 break-all font-mono text-[9px] text-emerald-800">https://carbonyx.org/verify/{certificate.certificateId}</div>
               </div>
             </div>
 
@@ -283,26 +322,6 @@ export const LegalComplianceCertificateModal: React.FC<LegalComplianceCertificat
             </div>
           </div>
         </div>
-
-        {/* Print Stylesheet Hook */}
-        <style>{`
-          @media print {
-            body * {
-              visibility: hidden;
-            }
-            .print\\:block, [class*="max-w-4xl"], [class*="max-w-4xl"] * {
-              visibility: visible;
-            }
-            [class*="max-w-4xl"] {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-              margin: 0;
-              padding: 10px;
-            }
-          }
-        `}</style>
 
       </div>
     </div>
