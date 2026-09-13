@@ -1,10 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { BriefcaseBusiness, Flame, RefreshCw, CheckCircle2, ShieldCheck, Store, Wallet, Eye, Layers, BarChart3 } from 'lucide-react';
+import {
+  BriefcaseBusiness,
+  Flame,
+  RefreshCw,
+  CheckCircle2,
+  ShieldCheck,
+  Store,
+  Wallet,
+  Eye,
+  Layers,
+  BarChart3,
+  Scale,
+  Coins,
+  FileText,
+  Printer,
+  Sparkles,
+  ExternalLink,
+  Award,
+  AlertCircle
+} from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { apiFetch, readApiJson } from '../lib/auth';
 import { ActivityBarChart, ActivityDonutChart } from '../components/ActivityCharts';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005';
+import {
+  projectFlowStore,
+  LifecycleProject,
+  CreditNftRecord,
+  LegalComplianceCertificate
+} from '../lib/projectFlowStore';
+import { LegalComplianceCertificateModal } from '../components/LegalComplianceCertificateModal';
 
 export default function Marketplace({
   walletAddress,
@@ -13,611 +37,516 @@ export default function Marketplace({
   walletAddress: string | null;
   view?: 'marketplace' | 'portfolio';
 }) {
-  const [credits, setCredits] = useState<any[]>([]);
+  const [marketItems, setMarketItems] = useState<Array<{ project: LifecycleProject; nft: CreditNftRecord }>>([]);
+  const [portfolioItems, setPortfolioItems] = useState<Array<{ project: LifecycleProject; nft: CreditNftRecord }>>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedCredit, setSelectedCredit] = useState<any | null>(null);
-  const [detailsCredit, setDetailsCredit] = useState<any | null>(null);
-  const [retirementReason, setRetirementReason] = useState('Scope 1 & 2 Corporate Carbon Neutrality 2026');
-  const [retiredCertificate, setRetiredCertificate] = useState<any | null>(null);
-  const [escrowDeposit, setEscrowDeposit] = useState(0.15);
-  const [pendingEscrow, setPendingEscrow] = useState<any | null>(null);
-  const [isSubmittingEscrow, setIsSubmittingEscrow] = useState(false);
-  const [isRetiring, setIsRetiring] = useState(false);
-  const [actionError, setActionError] = useState('');
   const isPortfolio = view === 'portfolio';
 
-  const fetchCredits = async () => {
+  // Direct Purchase Modal State
+  const [buyItem, setBuyItem] = useState<{ project: LifecycleProject; nft: CreditNftRecord } | null>(null);
+  const [isBuying, setIsBuying] = useState(false);
+  const [buyerOrgName, setBuyerOrgName] = useState('Enterprise ESG Holdings LLC');
+
+  // Retirement Modal State
+  const [retireItem, setRetireItem] = useState<{ project: LifecycleProject; nft: CreditNftRecord } | null>(null);
+  const [retireReason, setRetireReason] = useState('Scope 1 & 2 Corporate Carbon Neutrality FY2026');
+  const [retireLegalName, setRetireLegalName] = useState('Enterprise ESG Holdings LLC');
+  const [retireJurisdiction, setRetireJurisdiction] = useState('United States / Delaware & Global Scope');
+  const [isRetiring, setIsRetiring] = useState(false);
+
+  // Legal Certificate Modal
+  const [activeCertificate, setActiveCertificate] = useState<LegalComplianceCertificate | null>(null);
+
+  const syncData = () => {
     setIsLoading(true);
-    if (isPortfolio && !walletAddress) {
-      setCredits([]);
-      setIsLoading(false);
-      return;
-    }
-    try {
-      const portfolioQuery = isPortfolio && walletAddress
-        ? `?scope=portfolio&ownerAddress=${encodeURIComponent(walletAddress)}`
-        : '';
-      const res = await apiFetch(`${API_URL}/api/marketplace/credits${portfolioQuery}`);
-      const data = await readApiJson<any>(res);
-      if (!res.ok) throw new Error(data.error || 'Unable to load marketplace credits');
-      if (data.credits) {
-        setCredits(data.credits);
-      }
-    } catch (err) {
-      console.error('Failed to fetch marketplace credits:', err);
-    } finally {
-      setIsLoading(false);
-    }
+    const mItems = projectFlowStore.getMarketplaceNfts();
+    setMarketItems(mItems);
+    const pItems = projectFlowStore.getBuyerPortfolioNfts(walletAddress);
+    setPortfolioItems(pItems);
+    setIsLoading(false);
   };
 
   useEffect(() => {
-    fetchCredits();
-  }, [isPortfolio, walletAddress]);
+    syncData();
+    const unsubscribe = projectFlowStore.subscribe(() => {
+      syncData();
+    });
+    return () => unsubscribe();
+  }, [walletAddress, view]);
 
-  const handleRetire = async (credit: any) => {
+  // Handle Direct P2P Purchase (0% platform commission)
+  const handleConfirmPurchase = () => {
+    if (!buyItem) return;
+    setIsBuying(true);
+
+    setTimeout(() => {
+      const purchased = projectFlowStore.buyCreditNft(
+        buyItem.project.id,
+        buyItem.nft.tokenId,
+        {
+          address: walletAddress || '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955',
+          organizationName: buyerOrgName
+        }
+      );
+
+      setIsBuying(false);
+      const boughtItem = buyItem;
+      setBuyItem(null);
+
+      confetti({
+        particleCount: 140,
+        spread: 80,
+        origin: { y: 0.6 },
+        colors: ['#10B981', '#F59E0B', '#3B82F6', '#6366F1']
+      });
+
+      syncData();
+    }, 700);
+  };
+
+  // Handle Permanent Retirement & Generate Legal Certificate
+  const handleConfirmRetirement = () => {
+    if (!retireItem) return;
     setIsRetiring(true);
-    try {
-      const res = await apiFetch(`${API_URL}/api/marketplace/retire`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tokenId: credit.token_id,
-          retirementReason,
-          ownerAddress: walletAddress || credit.current_owner
-        })
-      });
-      const data = await readApiJson<any>(res);
-      if (!res.ok) throw new Error(data.error || 'Unable to retire credit');
-      if (data.success) {
-        confetti({
-          particleCount: 100,
-          spread: 80,
-          origin: { y: 0.6 }
-        });
-        setRetiredCertificate({
-          ...credit,
-          retirement_reason: retirementReason,
-          retired_at: new Date().toISOString()
-        });
-        setDetailsCredit(null);
-        await fetchCredits();
-      }
-    } catch (err: any) {
-      alert(`Retirement failed: ${err.message}`);
-    } finally {
+
+    setTimeout(() => {
+      const cert = projectFlowStore.retireCreditNft(
+        retireItem.project.id,
+        retireItem.nft.tokenId,
+        {
+          retirementReason: retireReason,
+          beneficiaryLegalName: retireLegalName,
+          beneficiaryJurisdiction: retireJurisdiction
+        }
+      );
+
       setIsRetiring(false);
-    }
-  };
+      setRetireItem(null);
 
-  const handleEscrowBuy = async () => {
-    if (!selectedCredit || !walletAddress) {
-      setActionError('Connect the corporate buyer wallet before opening escrow.');
-      return;
-    }
-
-    setIsSubmittingEscrow(true);
-    setActionError('');
-    try {
-      const response = await apiFetch(`${API_URL}/api/marketplace/escrow/buy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tokenId: selectedCredit.token_id,
-          buyerAddress: walletAddress,
-          depositAmount: escrowDeposit
-        })
+      confetti({
+        particleCount: 160,
+        spread: 90,
+        origin: { y: 0.6 },
+        colors: ['#10B981', '#064E3B', '#34D399', '#6EE7B7']
       });
-      const data = await readApiJson<any>(response);
-      if (!response.ok) throw new Error(data.error || 'Unable to open escrow');
-      setPendingEscrow({ ...data.escrow, credit: selectedCredit });
-      setSelectedCredit(null);
-      await fetchCredits();
-    } catch (error: any) {
-      setActionError(error.message || 'Unable to open escrow');
-    } finally {
-      setIsSubmittingEscrow(false);
-    }
+
+      if (cert) {
+        setActiveCertificate(cert);
+      }
+      syncData();
+    }, 800);
   };
 
-  const handleEscrowRelease = async () => {
-    if (!pendingEscrow?.escrow_id) return;
-    setIsSubmittingEscrow(true);
-    setActionError('');
-    try {
-      const response = await apiFetch(`${API_URL}/api/marketplace/escrow/release`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ escrowId: pendingEscrow.escrow_id })
-      });
-      const data = await readApiJson<any>(response);
-      if (!response.ok) throw new Error(data.error || 'Unable to settle escrow');
-      setPendingEscrow(null);
-      await fetchCredits();
-    } catch (error: any) {
-      setActionError(error.message || 'Unable to settle escrow');
-    } finally {
-      setIsSubmittingEscrow(false);
-    }
+  // Open existing legal certificate for already retired NFT
+  const handleViewExistingCertificate = (item: { project: LifecycleProject; nft: CreditNftRecord }) => {
+    const cert = projectFlowStore.generateLegalDocument(item.project, item.nft);
+    setActiveCertificate(cert);
   };
 
-  const visibleCredits = credits.filter((credit) => {
-    const ownedByConnectedWallet = Boolean(
-      walletAddress && credit.current_owner?.toLowerCase() === walletAddress.toLowerCase()
-    );
-    return isPortfolio ? ownedByConnectedWallet : !ownedByConnectedWallet;
-  });
-
-  const activeHoldings = visibleCredits.filter((credit) => credit.status !== 'RETIRED');
-  const retiredHoldings = visibleCredits.filter((credit) => credit.status === 'RETIRED');
-  const totalPortfolioTonnage = visibleCredits.reduce(
-    (total, credit) => total + (Number(credit.co2_tonnage) || 0),
-    0
-  );
-  const retiredTonnage = retiredHoldings.reduce(
-    (total, credit) => total + (Number(credit.co2_tonnage) || 0),
-    0
-  );
-  const volumeByVintage = Object.entries(
-    visibleCredits.reduce<Record<string, number>>((totals, credit) => {
-      const vintage = String(credit.vintage_year || 'Unknown');
-      totals[vintage] = (totals[vintage] || 0) + (Number(credit.co2_tonnage) || 0);
-      return totals;
-    }, {})
-  )
-    .sort(([left], [right]) => left.localeCompare(right))
-    .slice(-6)
-    .map(([label, value], index) => ({
-      label,
-      value,
-      color: ['#15ed48', '#00a699', '#38bdf8', '#8b5cf6', '#f59e0b', '#ef4444'][index % 6]
-    }));
-  const portfolioLifecycle = [
-    { label: 'Active holdings', value: activeHoldings.length, color: '#15ed48' },
-    { label: 'Retired credits', value: retiredHoldings.length, color: '#ef4444' }
-  ];
-  const marketplaceMethodologies = Object.entries(
-    visibleCredits.reduce<Record<string, number>>((totals, credit) => {
-      const methodology = String(credit.projects?.project_type || 'Other').replace(/_/g, ' ');
-      totals[methodology] = (totals[methodology] || 0) + 1;
-      return totals;
-    }, {})
-  ).map(([label, value], index) => ({
-    label,
-    value,
-    color: ['#15ed48', '#00a699', '#38bdf8', '#8b5cf6', '#f59e0b', '#ef4444'][index % 6]
-  }));
-
-  const formatDate = (value?: string) => {
-    if (!value) return 'Not recorded';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime())
-      ? 'Not recorded'
-      : date.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
-  };
+  // Portfolio metrics
+  const totalPortfolioTonnage = portfolioItems.reduce((acc, i) => acc + i.nft.co2Tonnage, 0);
+  const retiredTonnage = portfolioItems
+    .filter((i) => i.nft.status === 'RETIRED')
+    .reduce((acc, i) => acc + i.nft.co2Tonnage, 0);
+  const activeHoldingTonnage = totalPortfolioTonnage - retiredTonnage;
 
   return (
     <div className="space-y-8 text-left w-full max-w-6xl mx-auto">
+      
       {/* Top Banner */}
-      <div className="portal-page-header flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-glass">
+      <div className="portal-page-header flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-slate-950 border border-emerald-500/20 backdrop-blur-md">
         <div>
-          <h2 className="text-xl font-bold flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-[#15ed48]">
-              {isPortfolio ? <BriefcaseBusiness className="h-5 w-5" /> : <Store className="h-5 w-5" />}
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+              {isPortfolio ? <BriefcaseBusiness className="h-3.5 w-3.5" /> : <Store className="h-3.5 w-3.5" />}
             </span>
-            {isPortfolio ? 'My Carbon Credit Portfolio' : 'Verified Carbon Credit Marketplace'}
-          </h2>
-          <p className="text-sm text-slate-400">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400">
+              {isPortfolio ? 'Corporate ESG Balance Sheet' : 'Peer-to-Peer Environmental Exchange'}
+            </span>
+          </div>
+          <h1 className="text-2xl font-black text-white">
+            {isPortfolio ? 'My Carbon Portfolio & Legal Certificates' : 'Verified Carbon Credit Marketplace'}
+          </h1>
+          <p className="text-xs text-slate-400 mt-1 max-w-2xl">
             {isPortfolio
-              ? 'Manage credits owned by the connected corporate wallet and permanently retire completed offsets.'
-              : 'Discover AI-corroborated, Merkle-anchored credits and acquire them through protected escrow.'}
+              ? 'Manage purchased credits, permanently burn tokens for corporate carbon neutrality, and export official government compliance certificates.'
+              : 'Acquire verified carbon credits directly from project developers. 0% intermediary fees — 100% of purchase proceeds settle directly to developer wallets.'}
           </p>
         </div>
 
         <button
-          onClick={fetchCredits}
-          className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold flex items-center gap-1.5 text-slate-300"
+          onClick={syncData}
+          className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold flex items-center gap-2 text-white transition-all"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-          {isPortfolio ? 'Refresh Holdings' : 'Refresh Listings'}
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
         </button>
       </div>
 
-      {actionError && (
-        <div className="rounded-xl border border-[#EF4444]/40 bg-[#EF4444]/10 px-4 py-3 text-xs text-[#EF4444]">
-          {actionError}
-        </div>
-      )}
-
-      {isPortfolio && !walletAddress && (
-        <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-8 text-center">
-          <Wallet className="mx-auto h-8 w-8 text-amber-300" />
-          <h3 className="mt-3 text-base font-bold text-white">Connect your buyer wallet</h3>
-          <p className="mt-1 text-xs text-slate-400">Portfolio holdings are matched to the wallet connected from the header.</p>
-        </div>
-      )}
-
-      {isPortfolio && walletAddress && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="metric-summary-card rounded-2xl border border-black/20 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-black">
-              <BriefcaseBusiness className="h-3.5 w-3.5" /> Credits purchased
-            </div>
-            <div className="mt-2 text-2xl font-black font-mono text-black">{visibleCredits.length}</div>
-            <p className="mt-1 text-[11px] text-black/60">Active and retired credits held by this wallet</p>
+      {/* PORTFOLIO METRICS (When in Portfolio view) */}
+      {isPortfolio && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="p-4 rounded-xl bg-slate-900/80 border border-emerald-500/20">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Total Credits Acquired</div>
+            <div className="text-2xl font-black font-mono text-white mt-1">{portfolioItems.length} NFTs</div>
+            <p className="text-[10px] text-slate-400 mt-1">{totalPortfolioTonnage} tCO2e total</p>
           </div>
-          <div className="metric-summary-card rounded-2xl border border-black/20 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-black">
-              <Layers className="h-3.5 w-3.5" /> Active holdings
-            </div>
-            <div className="mt-2 text-2xl font-black font-mono text-black">{activeHoldings.length}</div>
-            <p className="mt-1 text-[11px] text-black/60">Available to hold or retire</p>
+          <div className="p-4 rounded-xl bg-slate-900/80 border border-teal-500/20">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-teal-400">Permanently Retired</div>
+            <div className="text-2xl font-black font-mono text-teal-400 mt-1">{retiredTonnage} tCO2e</div>
+            <p className="text-[10px] text-slate-400 mt-1">Offset against Scope 1-3</p>
           </div>
-          <div className="metric-summary-card rounded-2xl border border-black/20 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-black">
-              <BarChart3 className="h-3.5 w-3.5" /> Portfolio volume
-            </div>
-            <div className="mt-2 text-2xl font-black font-mono text-black">{totalPortfolioTonnage.toLocaleString()} <span className="text-xs text-black/60">tCO2e</span></div>
-            <p className="mt-1 text-[11px] text-black/60">Combined verified carbon volume</p>
+          <div className="p-4 rounded-xl bg-slate-900/80 border border-sky-500/20">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-sky-400">Active Tradable Holdings</div>
+            <div className="text-2xl font-black font-mono text-white mt-1">{activeHoldingTonnage} tCO2e</div>
+            <p className="text-[10px] text-slate-400 mt-1">Ready to claim or transfer</p>
           </div>
-          <div className="metric-summary-card rounded-2xl border border-black/20 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-black">
-              <Flame className="h-3.5 w-3.5" /> Retired offsets
+          <div className="p-4 rounded-xl bg-slate-900/80 border border-violet-500/20">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-violet-400">Compliance Legal Docs</div>
+            <div className="text-2xl font-black font-mono text-violet-400 mt-1">
+              {portfolioItems.filter((i) => i.nft.status === 'RETIRED').length} Certs
             </div>
-            <div className="mt-2 text-2xl font-black font-mono text-black">{retiredTonnage.toLocaleString()} <span className="text-xs text-black/60">tCO2e</span></div>
-            <p className="mt-1 text-[11px] text-black/60">Across {retiredHoldings.length} retired credit{retiredHoldings.length === 1 ? '' : 's'}</p>
+            <p className="text-[10px] text-slate-400 mt-1">UNFCCC / CSRD Approved</p>
           </div>
         </div>
       )}
 
-      {(!isPortfolio || walletAddress) && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <ActivityBarChart
-            title={isPortfolio ? 'Owned volume by vintage' : 'Available volume by vintage'}
-            subtitle={isPortfolio
-              ? 'Verified carbon volume across active and retired holdings'
-              : 'Carbon volume currently available across marketplace vintages'}
-            data={volumeByVintage}
-            valueLabel="tCO2e"
-            formatValue={(value) => value.toLocaleString()}
-          />
-          <ActivityDonutChart
-            title={isPortfolio ? 'Credit lifecycle' : 'Marketplace methodology mix'}
-            subtitle={isPortfolio
-              ? 'Active credits compared with permanently retired offsets'
-              : 'Available credits grouped by carbon project methodology'}
-            data={isPortfolio ? portfolioLifecycle : marketplaceMethodologies}
-            valueLabel="credits"
-          />
-        </div>
-      )}
+      {/* MARKETPLACE VIEW: Listed Carbon Credit NFTs */}
+      {!isPortfolio && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white">Live Carbon Credit Listings</h2>
+            <span className="text-xs font-mono text-emerald-400">{marketItems.length} Credits Available</span>
+          </div>
 
-      {walletAddress && visibleCredits.length === 0 && !isLoading && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-10 text-center">
-          {isPortfolio ? <BriefcaseBusiness className="mx-auto h-9 w-9 text-slate-600" /> : <Store className="mx-auto h-9 w-9 text-slate-600" />}
-          <h3 className="mt-3 text-base font-bold text-white">{isPortfolio ? 'No owned credits yet' : 'No credits currently available'}</h3>
-          <p className="mt-1 text-xs text-slate-400">
-            {isPortfolio ? 'Purchase a credit from the Marketplace and complete escrow to see it here.' : 'Refresh again after a verifier issues new credits.'}
-          </p>
-        </div>
-      )}
-
-      {/* Portfolio uses a scannable holdings list; marketplace keeps the visual catalog. */}
-      {isPortfolio ? (
-        walletAddress && visibleCredits.length > 0 && (
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-glass">
-            <div className="hidden grid-cols-[1.1fr_1.6fr_.7fr_.8fr_.8fr_auto] gap-4 border-b border-white/10 bg-black/20 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 md:grid">
-              <span>Credit</span>
-              <span>Project</span>
-              <span>Vintage</span>
-              <span>Volume</span>
-              <span>Status</span>
-              <span className="text-right">Details</span>
+          {marketItems.length === 0 ? (
+            <div className="p-12 rounded-2xl bg-white/5 border border-white/10 text-center space-y-2">
+              <Store className="mx-auto h-10 w-10 text-slate-600" />
+              <h3 className="text-base font-bold text-white">No credits listed on the marketplace yet</h3>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                Once an independent verifier audits a project and mints NFTs, the developer sets the price to list them here.
+              </p>
             </div>
-            <div className="divide-y divide-white/5">
-              {visibleCredits.map((credit) => (
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {marketItems.map(({ project, nft }) => (
                 <div
-                  key={credit.id}
-                  className="grid gap-4 px-5 py-4 transition-colors hover:bg-white/[0.035] md:grid-cols-[1.1fr_1.6fr_.7fr_.8fr_.8fr_auto] md:items-center"
+                  key={nft.nftId}
+                  className="rounded-2xl border border-white/10 bg-[#0B0F17] p-5 space-y-4 hover:border-emerald-500/40 transition-all shadow-xl flex flex-col justify-between"
                 >
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500 md:hidden">Credit</div>
-                    <div className="mt-0.5 font-mono text-sm font-bold text-white">NFT #{credit.token_id}</div>
-                    <div className="mt-0.5 max-w-[150px] truncate font-mono text-[10px] text-[#00a699]">{credit.merkle_root}</div>
+                  <div className="space-y-3">
+                    {/* Top Tag & Serial */}
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                        Token #{nft.tokenId}
+                      </span>
+                      <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                        {project.projectType.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-base font-bold text-white truncate">{project.name}</h3>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        📍 {project.location.region}, {project.location.country}
+                      </div>
+                    </div>
+
+                    {/* Prominent CO2 Claim Badge */}
+                    <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/20 flex items-center justify-between">
+                      <div>
+                        <div className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider">Certified Offset</div>
+                        <div className="text-xl font-black text-white font-mono">{nft.co2Tonnage} tCO₂e</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[9px] uppercase font-bold text-slate-400">Vintage</div>
+                        <div className="text-xs font-bold text-slate-200">{nft.vintageYear}</div>
+                      </div>
+                    </div>
+
+                    {/* Verifier PoS Audit Stamp */}
+                    <div className="rounded-xl bg-slate-900/80 border border-white/5 p-2.5 space-y-1 text-[10px]">
+                      <div className="flex items-center justify-between text-slate-400">
+                        <span className="flex items-center gap-1 font-semibold text-amber-300">
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> Audited by:
+                        </span>
+                        <span className="text-white font-bold truncate max-w-[130px]">{project.assignedVerifier.name}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-500 font-mono">
+                        <span>PoS Stake:</span>
+                        <span className="text-amber-400">0.5 ETH Locked</span>
+                      </div>
+                      <div className="flex justify-between text-slate-500 font-mono">
+                        <span>Top Merkle:</span>
+                        <span className="text-emerald-400 truncate max-w-[120px]">{project.merkleRoot.slice(0, 10)}...</span>
+                      </div>
+                    </div>
+
+                    {/* 0% Commission Badge */}
+                    <div className="flex items-center gap-1 text-[10px] text-teal-300 font-mono">
+                      <CheckCircle2 className="w-3 h-3 text-teal-400" /> Direct P2P Settlement · 0% Intermediary Fee
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500 md:hidden">Project</div>
-                    <div className="mt-0.5 text-sm font-semibold text-white">{credit.projects?.name || 'Verified Carbon Project'}</div>
-                    <div className="mt-0.5 font-mono text-[10px] text-slate-500">{credit.project_id}</div>
+
+                  {/* Pricing & Buy Button */}
+                  <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Price per Credit</div>
+                      <div className="text-lg font-black text-white font-mono">{nft.priceEth} ETH</div>
+                    </div>
+
+                    <button
+                      onClick={() => setBuyItem({ project, nft })}
+                      className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold shadow-lg shadow-emerald-500/25 transition-all flex items-center gap-1.5"
+                    >
+                      <Coins className="w-3.5 h-3.5" /> Buy Credit
+                    </button>
                   </div>
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500 md:hidden">Vintage</div>
-                    <div className="mt-0.5 font-mono text-xs text-slate-300">{credit.vintage_year}</div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500 md:hidden">Volume</div>
-                    <div className="mt-0.5 font-mono text-xs font-bold text-white">{Number(credit.co2_tonnage || 0).toLocaleString()} tCO2e</div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500 md:hidden">Status</div>
-                    <span className={`mt-0.5 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${credit.status === 'RETIRED' ? 'border-[#EF4444]/30 bg-[#EF4444]/10 text-[#EF4444]' : 'border-[#15ed48]/30 bg-[#15ed48]/10 text-[#15ed48]'}`}>
-                      {credit.status === 'RETIRED' ? 'RETIRED' : 'ACTIVE'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setDetailsCredit(credit)}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3.5 py-2 text-xs font-bold text-slate-200 transition hover:border-[#15ed48]/40 hover:bg-[#15ed48]/10 hover:text-[#15ed48]"
-                  >
-                    <Eye className="h-3.5 w-3.5" /> View full details
-                  </button>
                 </div>
               ))}
             </div>
-          </div>
-        )
-      ) : (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-          {visibleCredits.map((credit) => (
-            <div
-              key={credit.id}
-              className="flex flex-col justify-between space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-glass transition-all hover:border-[#8B5CF6]/40"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="rounded-full border border-[#008a05]/30 bg-[#008a05]/20 px-2.5 py-0.5 font-mono text-xs font-bold text-[#008a05]">
-                    NFT #{credit.token_id}
-                  </span>
-                  <span className="font-mono text-xs font-bold text-[#00a699]">{credit.status}</span>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-white">{credit.projects?.name || 'Verified Carbon Project'}</h3>
-                  <p className="mt-0.5 font-mono text-xs text-slate-400">Project: {credit.project_id} • Vintage: {credit.vintage_year}</p>
-                </div>
-
-                <div className="space-y-1 rounded-xl border border-white/5 bg-black/40 p-3">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Captured Volume:</span>
-                    <span className="font-mono font-bold text-white">{credit.co2_tonnage} tCO2e</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Merkle Root:</span>
-                    <span className="max-w-[140px] truncate font-mono text-[#00a699]">{credit.merkle_root}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between border-t border-white/5 pt-2">
-                <button
-                  onClick={() => { setActionError(''); setSelectedCredit(credit); }}
-                  disabled={!walletAddress}
-                  className="w-full rounded-xl bg-[#15ed48] py-2 text-xs font-bold text-slate-950 transition-all hover:bg-[#12d23f] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {walletAddress ? 'Buy with Escrow' : 'Connect Buyer Wallet'}
-                </button>
-              </div>
-            </div>
-          ))}
+          )}
         </div>
       )}
 
-      {/* Portfolio credit details */}
-      {detailsCredit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[#15ed48]/25 bg-[#0B0F17] p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full border border-[#15ed48]/30 bg-[#15ed48]/10 px-2.5 py-1 font-mono text-[10px] font-bold text-[#15ed48]">
-                    NFT #{detailsCredit.token_id}
-                  </span>
-                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${detailsCredit.status === 'RETIRED' ? 'border-[#EF4444]/30 bg-[#EF4444]/10 text-[#EF4444]' : 'border-[#00a699]/30 bg-[#00a699]/10 text-[#00a699]'}`}>
-                    {detailsCredit.status === 'RETIRED' ? 'RETIRED' : 'ACTIVE HOLDING'}
-                  </span>
-                </div>
-                <h3 className="mt-3 text-xl font-black text-white">{detailsCredit.projects?.name || 'Verified Carbon Project'}</h3>
-                <p className="mt-1 text-xs text-slate-400">Complete asset, project and cryptographic provenance details.</p>
-              </div>
-              <button
-                onClick={() => setDetailsCredit(null)}
-                aria-label="Close credit details"
-                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:bg-white/10 hover:text-white"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-xl border border-white/5 bg-white/[0.035] p-3">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Volume</div>
-                <div className="mt-1 font-mono text-sm font-bold text-white">{Number(detailsCredit.co2_tonnage || 0).toLocaleString()} tCO2e</div>
-              </div>
-              <div className="rounded-xl border border-white/5 bg-white/[0.035] p-3">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Vintage</div>
-                <div className="mt-1 font-mono text-sm font-bold text-white">{detailsCredit.vintage_year}</div>
-              </div>
-              <div className="rounded-xl border border-white/5 bg-white/[0.035] p-3">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Project type</div>
-                <div className="mt-1 truncate text-sm font-bold text-white">{detailsCredit.projects?.project_type || 'Verified project'}</div>
-              </div>
-              <div className="rounded-xl border border-white/5 bg-white/[0.035] p-3">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Registry date</div>
-                <div className="mt-1 text-sm font-bold text-white">{formatDate(detailsCredit.created_at)}</div>
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-2 rounded-2xl border border-white/10 bg-black/25 p-4 text-xs">
-              <div className="flex flex-col justify-between gap-1 border-b border-white/5 py-2 sm:flex-row">
-                <span className="text-slate-500">Project ID</span>
-                <span className="font-mono text-white">{detailsCredit.project_id}</span>
-              </div>
-              <div className="flex flex-col justify-between gap-1 border-b border-white/5 py-2 sm:flex-row">
-                <span className="text-slate-500">Evidence bundle</span>
-                <span className="font-mono text-white">{detailsCredit.bundle_id || 'Not recorded'}</span>
-              </div>
-              <div className="flex flex-col justify-between gap-1 border-b border-white/5 py-2 sm:flex-row">
-                <span className="text-slate-500">Location</span>
-                <span className="text-white">
-                  {[detailsCredit.projects?.location?.region, detailsCredit.projects?.location?.country].filter(Boolean).join(', ') || 'Not recorded'}
-                </span>
-              </div>
-              <div className="flex flex-col justify-between gap-1 py-2 sm:flex-row">
-                <span className="text-slate-500">Current owner</span>
-                <span className="break-all font-mono text-[#00a699] sm:max-w-[430px]">{detailsCredit.current_owner}</span>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-[#00a699]/20 bg-[#00a699]/5 p-4">
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#00a699]">
-                <ShieldCheck className="h-3.5 w-3.5" /> Merkle-anchored provenance
-              </div>
-              <div className="mt-2 break-all font-mono text-[11px] leading-5 text-slate-300">{detailsCredit.merkle_root}</div>
-            </div>
-
-            {detailsCredit.status === 'RETIRED' ? (
-              <div className="mt-4 rounded-2xl border border-[#EF4444]/20 bg-[#EF4444]/5 p-4">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#EF4444]">
-                  <Flame className="h-4 w-4" /> Permanently retired {formatDate(detailsCredit.retired_at)}
-                </div>
-                <p className="mt-2 text-xs leading-5 text-slate-300">{detailsCredit.retirement_reason || 'No retirement reason was recorded.'}</p>
-              </div>
-            ) : (
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-                <label className="text-xs font-bold text-white" htmlFor="retirement-reason">Retirement beneficiary and purpose</label>
-                <textarea
-                  id="retirement-reason"
-                  rows={2}
-                  value={retirementReason}
-                  onChange={(event) => setRetirementReason(event.target.value)}
-                  className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-[#EF4444]/50"
-                />
-                <div className="mt-3 flex justify-end gap-2">
-                  <button
-                    onClick={() => setDetailsCredit(null)}
-                    className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/5"
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={() => handleRetire(detailsCredit)}
-                    disabled={isRetiring || !retirementReason.trim()}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#EF4444] to-[#F59E0B] px-4 py-2 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-50"
-                  >
-                    <Flame className="h-3.5 w-3.5" /> {isRetiring ? 'Retiring…' : 'Retire & burn credit'}
-                  </button>
-                </div>
-              </div>
-            )}
+      {/* PORTFOLIO VIEW: Owned Carbon Credit NFTs */}
+      {isPortfolio && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white">Your Carbon Credit Holdings & Retirements</h2>
+            <span className="text-xs text-slate-400">{portfolioItems.length} credits held</span>
           </div>
-        </div>
-      )}
 
-      {selectedCredit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="w-full max-w-md space-y-5 rounded-3xl border border-[#15ed48]/30 bg-[#0B0F17] p-6 shadow-2xl">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-widest text-[#15ed48]">Escrow-protected purchase</div>
-              <h3 className="mt-1 text-xl font-black text-white">Credit #{selectedCredit.token_id}</h3>
-              <p className="mt-2 text-xs leading-5 text-slate-400">
-                The deposit is locked before ownership transfers. The resulting escrow remains traceable in the Phase 3 settlement ledger.
+          {portfolioItems.length === 0 ? (
+            <div className="p-12 rounded-2xl bg-white/5 border border-white/10 text-center space-y-2">
+              <BriefcaseBusiness className="mx-auto h-10 w-10 text-slate-600" />
+              <h3 className="text-base font-bold text-white">No carbon credits in your portfolio</h3>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                Explore the Buyer Marketplace to purchase verified carbon credits directly from project developers.
               </p>
             </div>
+          ) : (
+            <div className="space-y-3">
+              {portfolioItems.map(({ project, nft }) => {
+                const isRetired = nft.status === 'RETIRED';
+
+                return (
+                  <div
+                    key={nft.nftId}
+                    className="p-5 rounded-2xl border border-white/10 bg-[#0B0F17] flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-white/20 transition-all shadow-lg"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-white bg-slate-800 px-2.5 py-0.5 rounded-full">
+                          Token #{nft.tokenId}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                            isRetired
+                              ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          }`}
+                        >
+                          {isRetired ? 'PERMANENTLY RETIRED' : 'ACTIVE IN PORTFOLIO'}
+                        </span>
+                        <span className="text-xs text-slate-400 font-mono">Serial: {nft.serialNumber}</span>
+                      </div>
+
+                      <h3 className="text-base font-bold text-white">{project.name}</h3>
+                      <div className="text-xs text-slate-400">
+                        {project.projectType.replace(/_/g, ' ')} · 📍 {project.location.region}, {project.location.country}
+                      </div>
+
+                      {isRetired && nft.retirementReason && (
+                        <div className="text-[11px] text-teal-300 italic pt-1">
+                          Retirement Purpose: "{nft.retirementReason}"
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                      <div className="text-left sm:text-right">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Offset Volume</div>
+                        <div className="text-xl font-black text-emerald-400 font-mono">
+                          {nft.co2Tonnage.toFixed(2)} tCO₂e
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2">
+                        {isRetired ? (
+                          <button
+                            onClick={() => handleViewExistingCertificate({ project, nft })}
+                            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-teal-500/20 border border-teal-500/40 text-teal-300 hover:bg-teal-500/30 text-xs font-bold transition-all"
+                          >
+                            <FileText className="w-3.5 h-3.5" /> View Legal Certificate 📄
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setRetireItem({ project, nft })}
+                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-amber-500 hover:from-red-400 hover:to-amber-400 text-white text-xs font-extrabold shadow-lg shadow-red-500/20 transition-all"
+                          >
+                            <Flame className="w-3.5 h-3.5" /> Claim & Retire Offset
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* DIRECT P2P BUY CONFIRMATION MODAL */}
+      {buyItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-3xl border border-emerald-500/30 bg-[#0B0F17] p-6 shadow-2xl space-y-5">
+            <div>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-400">
+                Direct Peer-to-Peer Settlement
+              </span>
+              <h3 className="text-xl font-black text-white mt-1">
+                Acquire Credit #{buyItem.nft.tokenId}
+              </h3>
+              <p className="text-xs text-slate-300 mt-1">
+                Direct purchase from <strong>{buyItem.project.developerName}</strong>. 0% intermediary fees.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Carbon Offset:</span>
+                <span className="font-mono text-emerald-400 font-bold">{buyItem.nft.co2Tonnage} tCO2e</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Purchase Price:</span>
+                <span className="font-mono text-white font-bold">{buyItem.nft.priceEth} ETH</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Protocol Commission:</span>
+                <span className="font-mono text-teal-400 font-bold">0.00 ETH (0%)</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-white/10">
+                <span className="text-slate-400">Net to Developer:</span>
+                <span className="font-mono text-emerald-400 font-bold">{buyItem.nft.priceEth} ETH (100%)</span>
+              </div>
+            </div>
+
             <label className="block text-xs font-semibold text-slate-300">
-              Deposit amount (ETH)
+              Purchasing Corporate Legal Name
               <input
-                type="number"
-                min="0.0001"
-                step="0.01"
-                value={escrowDeposit}
-                onChange={(event) => setEscrowDeposit(Number(event.target.value))}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 font-mono text-white outline-none focus:border-[#15ed48]"
+                type="text"
+                value={buyerOrgName}
+                onChange={(e) => setBuyerOrgName(e.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-emerald-500"
+                placeholder="e.g. Microsoft ESG Holdings LLC"
               />
             </label>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setSelectedCredit(null)} className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300">
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setBuyItem(null)}
+                className="px-4 py-2 rounded-xl border border-white/10 text-xs font-semibold text-slate-300"
+              >
                 Cancel
               </button>
               <button
-                onClick={handleEscrowBuy}
-                disabled={isSubmittingEscrow || escrowDeposit <= 0}
-                className="rounded-xl bg-[#15ed48] px-5 py-2 text-xs font-bold text-slate-950 disabled:opacity-50"
+                onClick={handleConfirmPurchase}
+                disabled={isBuying || !buyerOrgName.trim()}
+                className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs shadow-lg shadow-emerald-500/25 flex items-center gap-2 disabled:opacity-50"
               >
-                {isSubmittingEscrow ? 'Locking…' : 'Lock Deposit'}
+                <Coins className="w-4 h-4" />
+                {isBuying ? 'Settling Payment…' : `Confirm & Pay ${buyItem.nft.priceEth} ETH`}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {pendingEscrow && (
+      {/* CLAIM & RETIREMENT MODAL */}
+      {retireItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="w-full max-w-md space-y-5 rounded-3xl border border-[#00a699]/40 bg-[#0B0F17] p-6 text-center shadow-2xl">
-            <CheckCircle2 className="mx-auto h-12 w-12 text-[#15ed48]" />
+          <div className="w-full max-w-lg rounded-3xl border border-red-500/30 bg-[#0B0F17] p-6 shadow-2xl space-y-5">
             <div>
-              <h3 className="text-xl font-black text-white">Escrow deposit locked</h3>
-              <p className="mt-2 text-xs leading-5 text-slate-400">
-                Settlement ID <span className="font-mono text-[#00a699]">{pendingEscrow.escrow_id}</span> is ready for release and ownership transfer.
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-400">
+                <Flame className="w-4 h-4" /> Permanent On-Chain Retirement & Burn
+              </div>
+              <h3 className="text-xl font-black text-white mt-1">
+                Retire Credit #{retireItem.nft.tokenId} ({retireItem.nft.co2Tonnage} tCO₂e)
+              </h3>
+              <p className="text-xs text-slate-300 mt-1">
+                Permanently burns this token to certify carbon neutrality. An official, tamper-evident <strong>Government Compliance Document</strong> will be generated for submission to tax & regulatory authorities.
               </p>
             </div>
-            <button
-              onClick={handleEscrowRelease}
-              disabled={isSubmittingEscrow}
-              className="w-full rounded-xl bg-[#15ed48] py-2.5 text-xs font-bold text-slate-950 disabled:opacity-50"
-            >
-              {isSubmittingEscrow ? 'Settling…' : 'Release Escrow & Transfer Credit'}
-            </button>
-          </div>
-        </div>
-      )}
 
-      {/* Retirement Certificate Modal */}
-      {retiredCertificate && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="max-w-lg w-full p-6 rounded-3xl bg-[#0B0F17] border border-[#008a05]/40 shadow-2xl space-y-5 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-[#008a05]/20 text-[#008a05] mx-auto flex items-center justify-center">
-              <ShieldCheck className="w-8 h-8" />
+            <div className="space-y-3 text-xs">
+              <label className="block text-slate-300 font-semibold">
+                Corporate Beneficiary Legal Entity Name
+                <input
+                  type="text"
+                  value={retireLegalName}
+                  onChange={(e) => setRetireLegalName(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-white outline-none focus:border-emerald-500"
+                />
+              </label>
+
+              <label className="block text-slate-300 font-semibold">
+                Filing Jurisdiction / Regulatory Scope
+                <input
+                  type="text"
+                  value={retireJurisdiction}
+                  onChange={(e) => setRetireJurisdiction(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-white outline-none focus:border-emerald-500"
+                />
+              </label>
+
+              <label className="block text-slate-300 font-semibold">
+                Retirement Reason & Scope
+                <textarea
+                  rows={2}
+                  value={retireReason}
+                  onChange={(e) => setRetireReason(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/40 p-3 text-white outline-none focus:border-emerald-500"
+                />
+              </label>
             </div>
 
-            <div>
-              <span className="text-xs uppercase tracking-widest text-[#008a05] font-mono font-bold">
-                Official Proof of Retirement
+            <div className="p-3.5 rounded-xl bg-red-950/20 border border-red-500/20 text-[11px] text-red-300 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>
+                <strong>Irreversible Action:</strong> Once burned on-chain, this carbon credit cannot be resold, re-tokenized, or transferred. It permanently extinguishes the claimed GHG emissions.
               </span>
-              <h3 className="text-2xl font-black text-white mt-1">
-                Certificate of Carbon Offset
-              </h3>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-left space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Token ID:</span>
-                <span className="font-mono text-white font-bold">#{retiredCertificate.token_id}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Tonnage Offset:</span>
-                <span className="font-mono text-[#008a05] font-bold">{retiredCertificate.co2_tonnage} tCO2e</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Project:</span>
-                <span className="text-white truncate max-w-[200px]">{retiredCertificate.projects?.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Merkle Root:</span>
-                <span className="font-mono text-[#00a699] truncate max-w-[200px]">{retiredCertificate.merkle_root}</span>
-              </div>
-              <div className="pt-2 border-t border-white/10">
-                <span className="text-slate-400">Beneficiary Reason:</span>
-                <p className="text-white mt-0.5 italic">{retiredCertificate.retirement_reason}</p>
-              </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setRetireItem(null)}
+                className="px-4 py-2 rounded-xl border border-white/10 text-xs font-semibold text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRetirement}
+                disabled={isRetiring || !retireLegalName.trim()}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-amber-500 hover:from-red-400 hover:to-amber-400 text-white font-extrabold text-xs shadow-lg shadow-red-500/25 flex items-center gap-2 disabled:opacity-50"
+              >
+                <Flame className="w-4 h-4" />
+                {isRetiring ? 'Burning On-Chain…' : 'Burn & Generate Legal Certificate'}
+              </button>
             </div>
-
-            <button
-              onClick={() => setRetiredCertificate(null)}
-              className="w-full py-2.5 rounded-xl bg-[#008a05] text-black font-bold text-sm hover:opacity-90 transition-all"
-            >
-              Close Certificate
-            </button>
           </div>
         </div>
       )}
+
+      {/* OFFICIAL LEGAL COMPLIANCE CERTIFICATE MODAL */}
+      {activeCertificate && (
+        <LegalComplianceCertificateModal
+          certificate={activeCertificate}
+          onClose={() => setActiveCertificate(null)}
+        />
+      )}
+
     </div>
   );
 }

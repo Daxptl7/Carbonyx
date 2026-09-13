@@ -9,11 +9,29 @@ import {
   MessageSquareReply,
   RefreshCw,
   ShieldCheck,
-  X
+  X,
+  Bell,
+  Sparkles,
+  Scale,
+  Coins,
+  Store,
+  Tag,
+  ArrowRight,
+  ChevronRight,
+  ExternalLink,
+  Layers,
+  Award
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { WalletState } from '../lib/web3';
 import { apiFetch, readApiJson } from '../lib/auth';
 import { ActivityBarChart, ActivityDonutChart } from '../components/ActivityCharts';
+import {
+  projectFlowStore,
+  LifecycleProject,
+  ProjectLifecycleState,
+  ProtocolNotification
+} from '../lib/projectFlowStore';
 
 interface MyRegistryProps {
   wallet: WalletState;
@@ -22,145 +40,113 @@ interface MyRegistryProps {
 
 type ResponseMode = 'REBUTTAL' | 'BASELINE_REVISION';
 
-const openStatuses = new Set(['OPEN', 'RESPONDED', 'REVISION_SUBMITTED']);
+const LIFECYCLE_STAGES: Array<{
+  state: ProjectLifecycleState;
+  label: string;
+  shortLabel: string;
+  step: number;
+}> = [
+  { state: 'BASELINE_WINDOW', label: '14-Day Baseline Window', shortLabel: '1. Baseline (14d)', step: 1 },
+  { state: 'VERIFIER_PENDING_STAKE', label: 'Verifier Pool Assignment', shortLabel: '2. Verifier Pool', step: 2 },
+  { state: 'VERIFIER_AUDITING', label: 'PoS Stake & Telemetry Audit', shortLabel: '3. Staked Audit', step: 3 },
+  { state: 'AUDITED', label: 'Audited & Verified', shortLabel: '4. Audited', step: 4 },
+  { state: 'CREDITS_ISSUED', label: 'NFT Credits Minted', shortLabel: '5. NFTs Minted', step: 5 },
+  { state: 'LISTED_ON_MARKETPLACE', label: 'Active on Marketplace', shortLabel: '6. Trading Live', step: 6 },
+  { state: 'RETIRED', label: 'Purchased & Retired', shortLabel: '7. Retired', step: 7 }
+];
 
 export default function MyRegistry({ wallet, backendUrl }: MyRegistryProps) {
-  const [registryProjects, setRegistryProjects] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
+  const [projects, setProjects] = useState<LifecycleProject[]>([]);
+  const [notifications, setNotifications] = useState<ProtocolNotification[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [selectedProject, setSelectedProject] = useState<any | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  
+  // Selected project for detailed modal
+  const [selectedProject, setSelectedProject] = useState<LifecycleProject | null>(null);
   const [selectedObjection, setSelectedObjection] = useState<any | null>(null);
   const [responseMode, setResponseMode] = useState<ResponseMode>('REBUTTAL');
   const [responseText, setResponseText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [revision, setRevision] = useState({
-    name: '',
-    projectType: 'REFORESTATION',
-    country: '',
-    region: '',
-    claimedAnnualTonnage: 0
-  });
 
-  const fetchRegistry = async () => {
-    setIsLoading(true);
-    setLoadError('');
-    try {
-      const ownerQuery = wallet.address
-        ? `?ownerAddress=${encodeURIComponent(wallet.address)}`
-        : '';
-      const response = await apiFetch(`${backendUrl}/api/projects/my-registry${ownerQuery}`);
-      const data = await readApiJson<any>(response);
-      if (!response.ok) throw new Error(data.error || 'Unable to load your project registry');
-      setRegistryProjects(data.projects || []);
-    } catch (error: any) {
-      setLoadError(error.message || 'Unable to load your project registry');
-    } finally {
-      setIsLoading(false);
+  // Pricing Studio State
+  const [pricingProjectId, setPricingProjectId] = useState<string | null>(null);
+  const [pricingEth, setPricingEth] = useState<number>(0.045);
+  const [isListingLoading, setIsListingLoading] = useState(false);
+
+  // Notification Drawer
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const syncProjects = () => {
+    const loadedProjects = projectFlowStore.getProjectsForDeveloper(wallet.address);
+    setProjects(loadedProjects);
+    const notifs = projectFlowStore.getNotifications('PROJECT_PROPONENT');
+    setNotifications(notifs);
+
+    // Keep selected project in sync
+    if (selectedProject) {
+      const updated = projectFlowStore.getProjectById(selectedProject.id);
+      if (updated) setSelectedProject(updated);
     }
   };
 
   useEffect(() => {
-    fetchRegistry();
-  }, [backendUrl, wallet.address]);
-
-  const allObjections = useMemo(
-    () => registryProjects.flatMap((item) => item.objections || []),
-    [registryProjects]
-  );
-  const activeObjections = allObjections.filter((objection) => openStatuses.has(objection.status));
-  const revisionsSubmitted = allObjections.filter((objection) => objection.status === 'REVISION_SUBMITTED').length;
-  const scoredProjects = registryProjects.filter((item) => Number.isFinite(Number(item.risk?.confidence_score)));
-  const averageConfidence = scoredProjects.length
-    ? Math.round(scoredProjects.reduce((total, item) => total + Number(item.risk.confidence_score), 0) / scoredProjects.length)
-    : null;
-  const registryActivity = useMemo(() => {
-    const now = new Date();
-    return Array.from({ length: 6 }, (_, index) => {
-      const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
-      const month = date.getMonth();
-      const year = date.getFullYear();
-      const projectEvents = registryProjects.filter((item) => {
-        const created = new Date(item.project?.created_at);
-        return created.getMonth() === month && created.getFullYear() === year;
-      }).length;
-      const objectionEvents = allObjections.filter((objection) => {
-        const created = new Date(objection.created_at);
-        return created.getMonth() === month && created.getFullYear() === year;
-      }).length;
-      return {
-        label: date.toLocaleDateString(undefined, { month: 'short' }),
-        value: projectEvents + objectionEvents,
-        color: '#00a699'
-      };
+    syncProjects();
+    const unsubscribe = projectFlowStore.subscribe(() => {
+      syncProjects();
     });
-  }, [registryProjects, allObjections]);
-  const riskDistribution = useMemo(() => {
-    const levels = [
-      { label: 'Low risk', key: 'LOW', color: '#15ed48' },
-      { label: 'Medium risk', key: 'MEDIUM', color: '#f59e0b' },
-      { label: 'High risk', key: 'HIGH', color: '#ef4444' },
-      { label: 'Awaiting scan', key: 'UNSCANNED', color: '#94a3b8' }
-    ];
-    return levels.map((level) => ({
-      label: level.label,
-      color: level.color,
-      value: registryProjects.filter((item) => (item.risk?.risk_level || 'UNSCANNED') === level.key).length
-    }));
-  }, [registryProjects]);
+    return () => unsubscribe();
+  }, [wallet.address]);
 
-  const openResponse = (projectItem: any, objection: any, mode: ResponseMode) => {
-    const project = projectItem.project;
-    setLoadError('');
-    setSelectedProject(projectItem);
-    setSelectedObjection(objection);
-    setResponseMode(mode);
-    setResponseText('');
-    setRevision({
-      name: project.name || '',
-      projectType: project.project_type || 'REFORESTATION',
-      country: project.location?.country || '',
-      region: project.location?.region || '',
-      claimedAnnualTonnage: Number(project.claimed_annual_tonnage || 0)
-    });
+  const unreadNotifsCount = notifications.filter((n) => !n.read).length;
+
+  const handleAdvanceBaseline = (projectId: string, event?: React.MouseEvent) => {
+    if (event) event.stopPropagation();
+    const success = projectFlowStore.advanceBaselineWindow(projectId);
+    if (success) {
+      setSuccessMessage('14-day baseline challenge window completed! Project routed to Verifier Pool.');
+      syncProjects();
+      setTimeout(() => setSuccessMessage(''), 4000);
+    }
   };
 
-  const submitResponse = async () => {
-    if (!selectedObjection || !selectedProject) return;
-    setIsSubmitting(true);
-    setLoadError('');
-    try {
-      const response = await apiFetch(
-        `${backendUrl}/api/projects/objections/${encodeURIComponent(selectedObjection.objection_id)}/respond`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            responseType: responseMode,
-            response: responseText,
-            ownerAddress: wallet.address,
-            revision: responseMode === 'BASELINE_REVISION'
-              ? {
-                  name: revision.name,
-                  projectType: revision.projectType,
-                  location: { country: revision.country, region: revision.region },
-                  claimedAnnualTonnage: revision.claimedAnnualTonnage
-                }
-              : undefined
-          })
-        }
-      );
-      const data = await readApiJson<any>(response);
-      if (!response.ok) throw new Error(data.error || 'Unable to submit your response');
-      setSuccessMessage(data.message || 'Your response was submitted');
-      setSelectedObjection(null);
-      setSelectedProject(null);
-      await fetchRegistry();
-    } catch (error: any) {
-      setLoadError(error.message || 'Unable to submit your response');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleOpenPricing = (project: LifecycleProject, event?: React.MouseEvent) => {
+    if (event) event.stopPropagation();
+    setPricingProjectId(project.id);
+    setPricingEth(project.listingPricePerNftEth || 0.045);
+  };
+
+  const handleListOnMarketplace = () => {
+    if (!pricingProjectId) return;
+    setIsListingLoading(true);
+    setTimeout(() => {
+      projectFlowStore.listNftsOnMarketplace(pricingProjectId, pricingEth);
+      setIsListingLoading(false);
+      setPricingProjectId(null);
+      setSuccessMessage(`Carbon Credit NFTs successfully listed on Marketplace at ${pricingEth} ETH each!`);
+      confetti({
+        particleCount: 120,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#10B981', '#3B82F6', '#F59E0B']
+      });
+      syncProjects();
+      setTimeout(() => setSuccessMessage(''), 5000);
+    }, 600);
+  };
+
+  const getStepNumber = (state: ProjectLifecycleState): number => {
+    const map: Record<ProjectLifecycleState, number> = {
+      BASELINE_WINDOW: 1,
+      VERIFIER_PENDING_STAKE: 2,
+      VERIFIER_AUDITING: 3,
+      AUDITED: 4,
+      CREDITS_ISSUED: 5,
+      LISTED_ON_MARKETPLACE: 6,
+      PURCHASED: 6,
+      RETIRED: 7
+    };
+    return map[state] || 1;
   };
 
   const formatDate = (value?: string) => {
@@ -168,289 +154,510 @@ export default function MyRegistry({ wallet, backendUrl }: MyRegistryProps) {
     const date = new Date(value);
     return Number.isNaN(date.getTime())
       ? 'Not recorded'
-      : date.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+      : date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
+      
+      {/* Top Header Banner */}
       <div className="portal-page-header flex flex-col items-start justify-between gap-4 rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-slate-950 p-6 backdrop-blur-md md:flex-row md:items-center">
         <div>
           <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-400">
-            <Database className="h-3.5 w-3.5" /> Proponent-owned records
+            <Database className="h-3.5 w-3.5" /> Project Developer Management Portal
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-white md:text-3xl">My Project Registry</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-white md:text-3xl">
+            My Project Registry & Issuance Pipeline
+          </h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-400">
-            Track every baseline you submitted, review objections, reply with supporting context or submit corrected project details.
+            Monitor the 14-day baseline challenge window, track Proof-of-Stake verifier audits, review verifier-issued NFTs, and list carbon credits on the public marketplace.
           </p>
         </div>
-        <button
-          onClick={fetchRegistry}
-          disabled={isLoading}
-          className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Refresh registry
-        </button>
+
+        <div className="flex items-center gap-2">
+          {/* Notifications Trigger */}
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+          >
+            <Bell className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Notifications</span>
+            {unreadNotifsCount > 0 && (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-slate-950">
+                {unreadNotifsCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={syncProjects}
+            className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-700"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
+          </button>
+        </div>
       </div>
 
-      {loadError && (
-        <div className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-300">
-          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" /> {loadError}
+      {/* Success / Error Messages */}
+      {successMessage && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-300 animate-fadeIn">
+          <CheckCircle2 className="h-4 w-4 flex-shrink-0" /> {successMessage}
         </div>
       )}
-      {successMessage && (
-        <div className="flex items-start gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-300">
-          <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" /> {successMessage}
+      {errorMessage && (
+        <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-300 animate-fadeIn">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" /> {errorMessage}
         </div>
       )}
 
+      {/* Notifications Drawer */}
+      {showNotifications && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-[#0B0F17] p-5 shadow-2xl space-y-3 animate-fadeIn">
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+              <Bell className="h-4 w-4 text-emerald-400" /> Protocol Notifications
+            </div>
+            <button
+              onClick={() => setShowNotifications(false)}
+              className="text-slate-400 hover:text-white text-xs"
+            >
+              Close
+            </button>
+          </div>
+
+          <div className="divide-y divide-white/5 max-h-64 overflow-y-auto space-y-2">
+            {notifications.length === 0 ? (
+              <p className="text-xs text-slate-500 py-3 text-center">No notifications yet.</p>
+            ) : (
+              notifications.map((notif) => (
+                <div
+                  key={notif.id}
+                  onClick={() => projectFlowStore.markNotificationAsRead(notif.id)}
+                  className={`pt-2 pb-2 text-xs cursor-pointer transition hover:bg-white/5 rounded-lg px-2 ${
+                    !notif.read ? 'border-l-2 border-emerald-400 pl-3 bg-emerald-950/20' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white">{notif.title}</span>
+                    <span className="text-[10px] text-slate-500">{formatDate(notif.timestamp)}</span>
+                  </div>
+                  <p className="text-slate-300 mt-1">{notif.message}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Metric Summary Cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="metric-summary-card rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Registered projects</div>
-          <div className="mt-1 text-2xl font-black text-white">{registryProjects.length}</div>
-          <p className="mt-1 text-[11px] text-slate-500">Baselines submitted by your account</p>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Total Registered</div>
+          <div className="mt-1 text-2xl font-black text-white">{projects.length}</div>
+          <p className="mt-1 text-[11px] text-slate-500">Projects submitted by your entity</p>
         </div>
         <div className="metric-summary-card rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Active objections</div>
-          <div className="mt-1 text-2xl font-black text-white">{activeObjections.length}</div>
-          <p className="mt-1 text-[11px] text-slate-500">Open or awaiting reviewer decision</p>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400">In 14-Day Baseline</div>
+          <div className="mt-1 text-2xl font-black text-white">
+            {projects.filter((p) => p.lifecycleState === 'BASELINE_WINDOW').length}
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500">Public observation & objection window</p>
         </div>
         <div className="metric-summary-card rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-sky-400">Revisions submitted</div>
-          <div className="mt-1 text-2xl font-black text-white">{revisionsSubmitted}</div>
-          <p className="mt-1 text-[11px] text-slate-500">Corrected baselines under review</p>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-sky-400">PoS Audited</div>
+          <div className="mt-1 text-2xl font-black text-white">
+            {projects.filter((p) => ['AUDITED', 'CREDITS_ISSUED', 'LISTED_ON_MARKETPLACE', 'RETIRED'].includes(p.lifecycleState)).length}
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500">Verified by accredited verifiers</p>
         </div>
         <div className="metric-summary-card rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-violet-400">Average AI confidence</div>
-          <div className="mt-1 text-2xl font-black text-white">{averageConfidence === null ? '—' : `${averageConfidence}%`}</div>
-          <p className="mt-1 text-[11px] text-slate-500">Across anomaly-scored baselines</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ActivityBarChart
-          title="Registry activity"
-          subtitle="Projects submitted and objections raised over the last six months"
-          data={registryActivity}
-          valueLabel="events"
-        />
-        <ActivityDonutChart
-          title="Baseline risk distribution"
-          subtitle="Current AI anomaly classification across your registered projects"
-          data={riskDistribution}
-          valueLabel="projects"
-        />
-      </div>
-
-      {isLoading ? (
-        <div className="flex items-center justify-center gap-3 py-16 text-sm text-slate-400">
-          <RefreshCw className="h-6 w-6 animate-spin text-emerald-400" /> Loading your registry…
-        </div>
-      ) : registryProjects.length === 0 ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center">
-          <Database className="mx-auto h-10 w-10 text-slate-600" />
-          <h2 className="mt-3 text-base font-bold text-white">No registered projects yet</h2>
-          <p className="mt-1 text-xs text-slate-400">Submit a project and baseline evidence from Project Studio to see it here.</p>
-          {!wallet.address && <p className="mt-2 text-[11px] text-amber-300">Connect the project owner wallet to discover older projects.</p>}
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-          <div className="hidden grid-cols-[1.6fr_.8fr_.8fr_.8fr_auto] gap-4 border-b border-white/10 bg-black/20 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 md:grid">
-            <span>Project</span><span>Baseline</span><span>AI risk</span><span>Objections</span><span>Manage</span>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-violet-400">NFTs Minted</div>
+          <div className="mt-1 text-2xl font-black text-white">
+            {projects.reduce((acc, p) => acc + p.nfts.length, 0)}
           </div>
-          <div className="divide-y divide-white/5">
-            {registryProjects.map((item) => {
-              const project = item.project;
-              const objections = item.objections || [];
-              const responseNeededCount = objections.filter((objection: any) => objection.status === 'OPEN').length;
-              const underReviewCount = objections.filter((objection: any) => ['RESPONDED', 'REVISION_SUBMITTED'].includes(objection.status)).length;
-              const riskLevel = item.risk?.risk_level || 'UNSCANNED';
-              return (
-                <div key={project.project_id} className="grid gap-4 px-5 py-4 transition hover:bg-white/[0.035] md:grid-cols-[1.6fr_.8fr_.8fr_.8fr_auto] md:items-center">
+          <p className="mt-1 text-[11px] text-slate-500">Tradable carbon credit tokens</p>
+        </div>
+      </div>
+
+      {/* Projects List with Lifecycle Steppers */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">Active Projects & Status Stepper</h2>
+          <span className="text-xs text-slate-400">{projects.length} projects loaded</span>
+        </div>
+
+        {projects.length === 0 ? (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center">
+            <Database className="mx-auto h-10 w-10 text-slate-600" />
+            <h3 className="mt-3 text-base font-bold text-white">No projects registered yet</h3>
+            <p className="mt-1 text-xs text-slate-400">Submit a project from Project Studio to begin the baseline challenge window.</p>
+          </div>
+        ) : (
+          projects.map((project) => {
+            const currentStep = getStepNumber(project.lifecycleState);
+            const isBaselineActive = project.lifecycleState === 'BASELINE_WINDOW';
+            const isAuditedWaitingMint = project.lifecycleState === 'AUDITED';
+            const isCreditsMinted = project.lifecycleState === 'CREDITS_ISSUED';
+            const isListed = project.lifecycleState === 'LISTED_ON_MARKETPLACE';
+            const isRetired = project.lifecycleState === 'RETIRED';
+
+            return (
+              <div
+                key={project.id}
+                className="rounded-2xl border border-white/10 bg-[#0B0F17]/80 p-5 space-y-4 hover:border-emerald-500/30 transition-all shadow-xl"
+              >
+                {/* Project Header Info */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-white/10 pb-4">
                   <div>
-                    <div className="text-sm font-bold text-white">{project.name}</div>
-                    <div className="mt-1 font-mono text-[10px] text-emerald-400">{project.project_id}</div>
-                    <div className="mt-1 text-[10px] text-slate-500">Added {formatDate(project.created_at)}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                        {project.id}
+                      </span>
+                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                        {project.projectType.replace(/_/g, ' ')}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        📍 {project.location.region}, {project.location.country}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-extrabold text-white mt-1">
+                      {project.name}
+                    </h3>
+                    <div className="text-xs text-slate-400 font-mono mt-0.5">
+                      Claimed: <span className="text-white font-bold">{project.claimedAnnualTonnage.toLocaleString()} tCO2e/yr</span> · Capex: <span className="text-white font-bold">${project.capexUsd.toLocaleString()}</span>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-[10px] uppercase text-slate-500 md:hidden">Baseline</div>
-                    <span className="text-xs font-semibold text-slate-300">{item.bundle?.status || 'NOT SUBMITTED'}</span>
+
+                  {/* Actions & Quick Buttons */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Fast-forward baseline button */}
+                    {isBaselineActive && (
+                      <button
+                        onClick={(e) => handleAdvanceBaseline(project.id, e)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 px-3 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/30 transition-all"
+                        title="Simulate conclusion of 14-day window for demo"
+                      >
+                        <Clock className="h-3.5 w-3.5" /> Advance 14d Baseline ⚡
+                      </button>
+                    )}
+
+                    {/* Set Price & List Button for Developer */}
+                    {(isCreditsMinted || isListed) && (
+                      <button
+                        onClick={(e) => handleOpenPricing(project, e)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 transition-all"
+                      >
+                        <Tag className="h-3.5 w-3.5" />
+                        {isListed ? `Price: ${project.listingPricePerNftEth} ETH (Edit)` : 'Set Price & List on Marketplace'}
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => setSelectedProject(project)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3.5 py-2 text-xs font-bold text-white hover:bg-white/10 transition-all"
+                    >
+                      <Eye className="h-3.5 w-3.5" /> Manage & Details
+                    </button>
                   </div>
-                  <div>
-                    <div className="text-[10px] uppercase text-slate-500 md:hidden">AI risk</div>
-                    <span className={`text-xs font-bold ${riskLevel === 'HIGH' ? 'text-red-400' : riskLevel === 'MEDIUM' ? 'text-amber-400' : riskLevel === 'LOW' ? 'text-emerald-400' : 'text-slate-500'}`}>
-                      {riskLevel}{item.risk ? ` · ${item.risk.confidence_score}%` : ''}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="text-[10px] uppercase text-slate-500 md:hidden">Objections</div>
-                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${responseNeededCount ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : underReviewCount ? 'border-sky-500/30 bg-sky-500/10 text-sky-300' : 'border-slate-700 bg-slate-800 text-slate-400'}`}>
-                      {responseNeededCount ? `${responseNeededCount} ACTION NEEDED` : underReviewCount ? `${underReviewCount} UNDER REVIEW` : `${objections.length} TOTAL`}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setSelectedProject(item)}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3.5 py-2 text-xs font-bold text-white transition hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-300"
-                  >
-                    <Eye className="h-3.5 w-3.5" /> Manage project
-                  </button>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
-      {selectedProject && !selectedObjection && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-emerald-500/25 bg-[#0B0F17] p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
-              <div>
-                <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400">{selectedProject.project.project_id}</div>
-                <h2 className="mt-1 text-xl font-black text-white">{selectedProject.project.name}</h2>
-                <p className="mt-1 text-xs text-slate-400">{selectedProject.project.project_type} · {selectedProject.project.location?.region}, {selectedProject.project.location?.country}</p>
+                {/* 5-Stage Visual Progress Stepper */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-mono font-bold text-slate-400">
+                    <span>LIFECYCLE PIPELINE PROGRESS</span>
+                    <span className="text-emerald-400">
+                      Stage {currentStep} of 6: {project.lifecycleState.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                    {[
+                      { step: 1, label: '1. Baseline 14d', desc: isBaselineActive ? '11d remaining' : 'Completed' },
+                      { step: 2, label: '2. Verifier Pool', desc: project.assignedVerifier?.name?.split(' ')[0] || 'Assigned' },
+                      { step: 3, label: '3. PoS Staked', desc: project.verifierStakedEth ? `${project.verifierStakedEth} ETH Locked` : 'Pending' },
+                      { step: 4, label: '4. Audited', desc: project.auditedAt ? 'Verified' : 'In Review' },
+                      { step: 5, label: '5. NFTs Minted', desc: project.nfts.length > 0 ? `${project.nfts.length} NFTs` : 'Awaiting Verifier' },
+                      { step: 6, label: '6. Marketplace', desc: isListed ? `${project.listingPricePerNftEth} ETH` : isRetired ? 'Retired' : 'Unlisted' }
+                    ].map((st) => {
+                      const isComplete = currentStep > st.step;
+                      const isCurrent = currentStep === st.step;
+
+                      return (
+                        <div
+                          key={st.step}
+                          className={`rounded-xl p-2.5 border transition-all text-left ${
+                            isComplete
+                              ? 'border-emerald-500/40 bg-emerald-950/20 text-emerald-300'
+                              : isCurrent
+                              ? 'border-emerald-400 bg-emerald-500/10 text-white ring-1 ring-emerald-400/40'
+                              : 'border-white/5 bg-white/[0.02] text-slate-500'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 text-xs font-bold truncate">
+                            {isComplete ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+                            ) : isCurrent ? (
+                              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+                            ) : (
+                              <span className="h-2 w-2 rounded-full bg-slate-600 flex-shrink-0" />
+                            )}
+                            <span className="truncate">{st.label}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-1 truncate pl-3.5">
+                            {st.desc}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Dynamic Status Callout Alert */}
+                <div className="rounded-xl bg-slate-900/60 border border-white/5 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    {isBaselineActive ? (
+                      <>
+                        <Clock className="h-4 w-4 text-amber-400" />
+                        <span className="text-slate-300">
+                          <strong>14-Day Baseline Observation Window Active:</strong> Open for public objections ({project.objections.length} active).
+                        </span>
+                      </>
+                    ) : project.lifecycleState === 'VERIFIER_PENDING_STAKE' ? (
+                      <>
+                        <Scale className="h-4 w-4 text-sky-400" />
+                        <span className="text-slate-300">
+                          <strong>Verifier Pool Assignment:</strong> Routed to {project.assignedVerifier.name} ({project.assignedVerifier.organization}). Awaiting verifier PoS collateral stake.
+                        </span>
+                      </>
+                    ) : project.lifecycleState === 'VERIFIER_AUDITING' ? (
+                      <>
+                        <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                        <span className="text-slate-300">
+                          <strong>Active PoS Audit:</strong> Verifier staked {project.verifierStakedEth} ETH collateral. Evaluating ground IoT + Sentinel-2 multispectral evidence.
+                        </span>
+                      </>
+                    ) : isAuditedWaitingMint ? (
+                      <>
+                        <Award className="h-4 w-4 text-emerald-400" />
+                        <span className="text-slate-300">
+                          <strong>Audit Approved:</strong> Verifier {project.assignedVerifier.name} verified project. Verifier will now configure and issue the tradable Credit NFTs.
+                        </span>
+                      </>
+                    ) : isCreditsMinted ? (
+                      <>
+                        <Sparkles className="h-4 w-4 text-emerald-400" />
+                        <span className="text-slate-300">
+                          <strong>Credit NFTs Minted to Your Wallet:</strong> {project.nfts.length} NFTs ({project.totalIssuedTonnage} tCO2e). Set your selling price to list on the Marketplace!
+                        </span>
+                      </>
+                    ) : isListed ? (
+                      <>
+                        <Store className="h-4 w-4 text-emerald-400" />
+                        <span className="text-slate-300">
+                          <strong>Listed on Marketplace:</strong> {project.nfts.filter((n) => n.status === 'LISTED').length} NFTs live at {project.listingPricePerNftEth} ETH. (100% of purchase proceeds settle directly to you).
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-teal-400" />
+                        <span className="text-slate-300">
+                          <strong>Credits Acquired & Retired:</strong> Offsets permanently retired by corporate buyers with cryptographic certificates.
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="font-mono text-[11px] text-slate-500">
+                    Top Merkle Root: {project.merkleRoot.slice(0, 14)}...
+                  </div>
+                </div>
+
               </div>
-              <button onClick={() => setSelectedProject(null)} aria-label="Close project" className="rounded-full border border-white/10 p-2 text-slate-400 hover:bg-white/10 hover:text-white">
+            );
+          })
+        )}
+      </div>
+
+      {/* Pricing & Marketplace Listing Modal */}
+      {pricingProjectId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-3xl border border-emerald-500/30 bg-[#0B0F17] p-6 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-400">
+                  Developer Pricing Studio
+                </span>
+                <h3 className="text-xl font-black text-white mt-0.5">
+                  List Credits on Marketplace
+                </h3>
+              </div>
+              <button
+                onClick={() => setPricingProjectId(null)}
+                className="rounded-full border border-white/10 p-2 text-slate-400 hover:text-white"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-xl border border-white/5 bg-white/[0.035] p-3"><div className="text-[10px] uppercase text-slate-500">Claimed volume</div><div className="mt-1 font-mono text-sm font-bold text-white">{Number(selectedProject.project.claimed_annual_tonnage).toLocaleString()} tCO2e</div></div>
-              <div className="rounded-xl border border-white/5 bg-white/[0.035] p-3"><div className="text-[10px] uppercase text-slate-500">Bundle status</div><div className="mt-1 text-sm font-bold text-white">{selectedProject.bundle?.status || 'None'}</div></div>
-              <div className="rounded-xl border border-white/5 bg-white/[0.035] p-3"><div className="text-[10px] uppercase text-slate-500">AI confidence</div><div className="mt-1 text-sm font-bold text-white">{selectedProject.risk ? `${selectedProject.risk.confidence_score}%` : 'Unscanned'}</div></div>
-              <div className="rounded-xl border border-white/5 bg-white/[0.035] p-3"><div className="text-[10px] uppercase text-slate-500">Objections</div><div className="mt-1 text-sm font-bold text-white">{selectedProject.objections?.length || 0}</div></div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Set your asking price per Carbon Credit NFT. Buyers will pay directly to your connected developer wallet address (<strong>0% protocol commission</strong>).
+            </p>
+
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
+              <label className="block text-xs font-semibold text-slate-300">
+                Price per NFT Credit (ETH)
+                <div className="relative mt-1.5">
+                  <input
+                    type="number"
+                    min="0.001"
+                    step="0.005"
+                    value={pricingEth}
+                    onChange={(e) => setPricingEth(Number(e.target.value))}
+                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 font-mono text-sm text-white outline-none focus:border-emerald-500 pl-8"
+                  />
+                  <Coins className="h-4 w-4 text-emerald-400 absolute left-2.5 top-3" />
+                </div>
+              </label>
+
+              {/* Pricing Economics Preview */}
+              <div className="text-[11px] font-mono space-y-1 text-slate-400 border-t border-white/10 pt-2">
+                <div className="flex justify-between">
+                  <span>NFTs in Batch:</span>
+                  <span className="text-white font-bold">
+                    {projectFlowStore.getProjectById(pricingProjectId)?.nfts.length || 100} NFTs
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total Project Revenue:</span>
+                  <span className="text-emerald-400 font-bold">
+                    {((projectFlowStore.getProjectById(pricingProjectId)?.nfts.length || 100) * pricingEth).toFixed(3)} ETH
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Protocol Intermediary Fee:</span>
+                  <span className="text-teal-400 font-bold">0.00% (Direct Settlement)</span>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-5">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldCheck className="h-4 w-4 text-violet-500" /> Regulatory requirements and decisions</h3>
-              {selectedProject.regulatoryActions?.length ? (
-                <div className="mt-3 space-y-3">
-                  {selectedProject.regulatoryActions.map((action: any) => (
-                    <div key={action.action_id} className="rounded-2xl border border-violet-200 bg-white p-4">
-                      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
-                        <div><div className="text-xs font-bold text-slate-900">{String(action.action_type).replace(/_/g, ' ')}</div><div className="mt-1 text-[10px] text-slate-500">Assigned by {action.regulator_name} · {formatDate(action.created_at)}</div></div>
-                        <span className="self-start rounded-full border border-violet-200 px-2.5 py-1 text-[10px] font-bold text-violet-700">REGULATOR</span>
-                      </div>
-                      <p className="mt-3 text-xs leading-5 text-slate-700">{action.reason}</p>
-                      {action.action_type === 'REQUIRE_MONITORING' && <div className="mt-2 text-[10px] font-bold text-amber-700">Action required: provide the requested monitoring evidence in your next baseline revision.</div>}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">No regulatory requirements have been assigned to this project.</div>
-              )}
-            </div>
-
-            <div className="mt-5">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-white"><MessageSquareReply className="h-4 w-4 text-amber-400" /> Verifier evidence requests</h3>
-              {selectedProject.evidenceRequests?.length ? (
-                <div className="mt-3 space-y-3">
-                  {selectedProject.evidenceRequests.map((request: any) => (
-                    <div key={request.id} className="rounded-2xl border border-amber-200 bg-white p-4">
-                      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
-                        <div>
-                          <div className="text-xs font-bold text-slate-900">{String(request.payload?.category || 'Additional evidence').replace(/_/g, ' ')}</div>
-                          <div className="mt-1 text-[10px] text-slate-500">Requested by {request.payload?.verifierName || 'Independent verifier'} · {formatDate(request.submitted_at)}</div>
-                        </div>
-                        {request.payload?.dueDate && <span className="self-start rounded-full border border-amber-200 px-2.5 py-1 text-[10px] font-bold text-amber-700">DUE {formatDate(request.payload.dueDate)}</span>}
-                      </div>
-                      <p className="mt-3 text-xs leading-5 text-slate-700">{request.payload?.message}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">No additional evidence has been requested by a verifier.</div>
-              )}
-            </div>
-
-            <div className="mt-5">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-white"><AlertTriangle className="h-4 w-4 text-amber-400" /> Objection history</h3>
-              {selectedProject.objections?.length ? (
-                <div className="mt-3 space-y-3">
-                  {selectedProject.objections.map((objection: any) => (
-                    <div key={objection.objection_id} className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-                      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
-                        <div>
-                          <div className="text-xs font-bold text-white">{objection.category}</div>
-                          <div className="mt-1 text-[10px] text-slate-500">Raised by {objection.raised_by_name} · {objection.raised_by_role.replace(/_/g, ' ')} · {formatDate(objection.created_at)}</div>
-                        </div>
-                        <span className={`self-start rounded-full border px-2.5 py-1 text-[10px] font-bold ${objection.status === 'OPEN' ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-sky-500/30 bg-sky-500/10 text-sky-300'}`}>{objection.status.replace(/_/g, ' ')}</span>
-                      </div>
-                      <p className="mt-3 rounded-xl bg-black/25 p-3 text-xs leading-5 text-slate-300">{objection.reason}</p>
-                      {objection.proponent_response && (
-                        <div className="mt-2 rounded-xl border border-emerald-500/15 bg-emerald-500/5 p-3 text-xs leading-5 text-emerald-100">
-                          <span className="font-bold text-emerald-400">Your response: </span>{objection.proponent_response}
-                        </div>
-                      )}
-                      {objection.status === 'OPEN' && (
-                        <div className="mt-3 flex flex-wrap justify-end gap-2">
-                          <button onClick={() => openResponse(selectedProject, objection, 'REBUTTAL')} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/5">
-                            <MessageSquareReply className="h-3.5 w-3.5" /> Reply / rebut
-                          </button>
-                          <button onClick={() => openResponse(selectedProject, objection, 'BASELINE_REVISION')} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400">
-                            <FilePenLine className="h-3.5 w-3.5" /> Revise baseline
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-xs text-emerald-300">
-                  <ShieldCheck className="h-4 w-4" /> No objections have been raised against this baseline.
-                </div>
-              )}
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setPricingProjectId(null)}
+                className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleListOnMarketplace}
+                disabled={isListingLoading || pricingEth <= 0}
+                className="rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+              >
+                {isListingLoading ? 'Publishing to Marketplace…' : 'Publish Listing'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {selectedObjection && selectedProject && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-emerald-500/30 bg-[#0B0F17] p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
+      {/* Selected Project Full Details Modal */}
+      {selectedProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-emerald-500/25 bg-[#0B0F17] p-6 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between border-b border-white/10 pb-4">
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">{responseMode === 'REBUTTAL' ? 'Reply to objection' : 'Submit corrected baseline'}</div>
-                <h2 className="mt-1 text-xl font-black text-white">{selectedProject.project.name}</h2>
+                <div className="font-mono text-xs font-bold uppercase tracking-wider text-emerald-400">
+                  {selectedProject.id} · {selectedProject.lifecycleState.replace(/_/g, ' ')}
+                </div>
+                <h2 className="mt-1 text-2xl font-black text-white">{selectedProject.name}</h2>
+                <p className="mt-1 text-xs text-slate-400">
+                  {selectedProject.projectType} · {selectedProject.location.region}, {selectedProject.location.country}
+                </p>
               </div>
-              <button onClick={() => setSelectedObjection(null)} aria-label="Close response" className="rounded-full border border-white/10 p-2 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
+              <button
+                onClick={() => setSelectedProject(null)}
+                className="rounded-full border border-white/10 p-2 text-slate-400 hover:bg-white/10 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
-            <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs leading-5 text-slate-300">
-              <span className="font-bold text-amber-300">Objection: </span>{selectedObjection.reason}
+            {/* Grid Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                <div className="text-[10px] text-slate-400 uppercase">Claimed Tonnage</div>
+                <div className="font-mono font-bold text-white text-sm mt-1">{selectedProject.claimedAnnualTonnage.toLocaleString()} tCO2e</div>
+              </div>
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                <div className="text-[10px] text-slate-400 uppercase">AI Confidence</div>
+                <div className="font-mono font-bold text-emerald-400 text-sm mt-1">{selectedProject.aiConfidenceScore}% ({selectedProject.riskLevel})</div>
+              </div>
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                <div className="text-[10px] text-slate-400 uppercase">Assigned Verifier</div>
+                <div className="font-bold text-white text-xs mt-1 truncate">{selectedProject.assignedVerifier?.name}</div>
+              </div>
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                <div className="text-[10px] text-slate-400 uppercase">NFTs Minted</div>
+                <div className="font-mono font-bold text-sky-400 text-sm mt-1">{selectedProject.nfts.length} Tokens</div>
+              </div>
             </div>
 
-            {responseMode === 'BASELINE_REVISION' && (
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="text-xs text-slate-400 sm:col-span-2">Project name<input value={revision.name} onChange={(event) => setRevision({ ...revision, name: event.target.value })} className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-white outline-none focus:border-emerald-500" /></label>
-                <label className="text-xs text-slate-400">Methodology<select value={revision.projectType} onChange={(event) => setRevision({ ...revision, projectType: event.target.value })} className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-white outline-none focus:border-emerald-500"><option value="REFORESTATION">Reforestation</option><option value="BLUE_CARBON">Blue Carbon</option><option value="METHANE_CAPTURE">Methane Capture</option><option value="RENEWABLE_ENERGY">Renewable Energy</option><option value="PEATLAND_RESTORATION">Peatland Restoration</option><option value="MANGROVE_BLUE_CARBON">Mangrove Blue Carbon</option><option value="SOIL_CARBON">Soil Carbon</option></select></label>
-                <label className="text-xs text-slate-400">Claimed tCO2e / year<input type="number" min="1" value={revision.claimedAnnualTonnage} onChange={(event) => setRevision({ ...revision, claimedAnnualTonnage: Number(event.target.value) })} className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 font-mono text-white outline-none focus:border-emerald-500" /></label>
-                <label className="text-xs text-slate-400">Country<input value={revision.country} onChange={(event) => setRevision({ ...revision, country: event.target.value })} className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-white outline-none focus:border-emerald-500" /></label>
-                <label className="text-xs text-slate-400">Region<input value={revision.region} onChange={(event) => setRevision({ ...revision, region: event.target.value })} className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-white outline-none focus:border-emerald-500" /></label>
+            {/* Verifier PoS Audit Information */}
+            <div className="p-4 rounded-xl bg-slate-900/80 border border-emerald-500/20 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="font-bold text-white flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400" /> Independent Verifier Proof-of-Stake Audit
+                </div>
+                {selectedProject.verifierStakedEth && (
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    {selectedProject.verifierStakedEth} ETH Staked
+                  </span>
+                )}
               </div>
-            )}
+              <p className="text-slate-300">
+                {selectedProject.verifierAuditNotes || 'Verifier has not submitted formal audit notes yet.'}
+              </p>
+              {selectedProject.auditAttestationHash && (
+                <div className="font-mono text-[10px] text-slate-400 truncate">
+                  Audit Attestation Hash: <span className="text-emerald-300">{selectedProject.auditAttestationHash}</span>
+                </div>
+              )}
+            </div>
 
-            <label className="mt-4 block text-xs font-semibold text-slate-300">
-              {responseMode === 'REBUTTAL' ? 'Your response and supporting explanation' : 'Explain what you corrected'}
-              <textarea rows={4} value={responseText} onChange={(event) => setResponseText(event.target.value)} className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-white outline-none focus:border-emerald-500" placeholder={responseMode === 'REBUTTAL' ? 'Explain why the objection is incorrect and reference supporting evidence…' : 'Describe the baseline corrections made in this revision…'} />
-            </label>
+            {/* Objections List */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                Baseline Objections ({selectedProject.objections.length})
+              </h4>
+              {selectedProject.objections.length === 0 ? (
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-xs text-emerald-300 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" /> No objections raised against this project.
+                </div>
+              ) : (
+                selectedProject.objections.map((obj) => (
+                  <div key={obj.id} className="p-4 rounded-xl border border-white/10 bg-white/5 space-y-2 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-amber-300">{obj.category}</span>
+                      <span className="font-mono text-[10px] text-slate-400">{formatDate(obj.createdAt)}</span>
+                    </div>
+                    <p className="text-slate-300">{obj.reason}</p>
+                  </div>
+                ))
+              )}
+            </div>
 
-            {loadError && (
-              <div className="mt-3 flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs text-red-300">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" /> {loadError}
-              </div>
-            )}
-
-            <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
-              <p className="flex items-center gap-1.5 text-[10px] text-slate-500"><Clock className="h-3.5 w-3.5" /> Reviewer resolution is still required.</p>
-              <div className="flex gap-2">
-                <button onClick={() => setSelectedObjection(null)} className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300">Cancel</button>
-                <button onClick={submitResponse} disabled={isSubmitting || responseText.trim().length < 5} className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400 disabled:opacity-50">{isSubmitting ? 'Submitting…' : responseMode === 'REBUTTAL' ? 'Submit response' : 'Submit revision'}</button>
-              </div>
+            {/* Close */}
+            <div className="flex justify-end pt-3 border-t border-white/10">
+              <button
+                onClick={() => setSelectedProject(null)}
+                className="rounded-xl bg-slate-800 hover:bg-slate-700 px-5 py-2 text-xs font-bold text-white"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }

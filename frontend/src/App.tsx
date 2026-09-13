@@ -319,6 +319,40 @@ export default function App() {
             </button>
           </div>
 
+          {/* Demo Persona Quick-Switcher */}
+          <div className="hidden xl:flex items-center gap-1 bg-slate-100/90 p-1 rounded-full border border-slate-200/80 text-xs font-semibold">
+            <span className="text-[10px] font-mono uppercase text-slate-500 px-2 font-bold">Role:</span>
+            {[
+              { role: 'PROJECT_PROPONENT', label: 'Proponent', icon: '🏗️', home: 'my-registry', name: 'Amazonas BioCarbon', org: 'Amazonas Consórcio' },
+              { role: 'INDEPENDENT_VERIFIER', label: 'Verifier (PoS)', icon: '🛡️', home: 'verifier', name: 'Dr. Elena Rostova', org: 'SGS Climate Assurance' },
+              { role: 'CORPORATE_BUYER', label: 'Buyer', icon: '💼', home: 'marketplace', name: 'Global ESG Fund', org: 'Microsoft Sustainability' },
+              { role: 'REGULATOR_AUDITOR', label: 'Auditor', icon: '🏛️', home: 'explorer', name: 'Climate Inspector', org: 'UNFCCC Secretariat' }
+            ].map((preset) => (
+              <button
+                key={preset.role}
+                onClick={() => {
+                  setAuthUser({
+                    id: `demo-${preset.role.toLowerCase()}`,
+                    loginId: `${preset.label.toLowerCase()}.demo`,
+                    displayName: preset.name,
+                    organization: preset.org,
+                    role: preset.role as any,
+                    walletAddress: wallet.address
+                  });
+                  setActiveTab(preset.home as any);
+                }}
+                className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs transition-all ${
+                  authUser.role === preset.role
+                    ? 'bg-[#15ed48] text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-600 hover:text-slate-950 hover:bg-white'
+                }`}
+              >
+                <span>{preset.icon}</span>
+                <span>{preset.label}</span>
+              </button>
+            ))}
+          </div>
+
           {/* Wallet and account controls. */}
           <div className="flex items-center gap-4">
             <div className="hidden 2xl:flex items-center gap-2 rounded-full bg-[#f7f7f7] px-3 py-1.5">
@@ -385,6 +419,41 @@ export default function App() {
                       <span className="inline-block rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200/60 truncate">
                         {portal.label}
                       </span>
+                    </div>
+                  </div>
+
+                  {/* Switch Persona in Menu */}
+                  <div className="p-2 border-b border-slate-100">
+                    <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-1.5 px-1">Switch Demo Persona</p>
+                    <div className="grid grid-cols-2 gap-1 text-xs">
+                      {[
+                        { role: 'PROJECT_PROPONENT', label: 'Proponent', icon: '🏗️', home: 'my-registry', name: 'Amazonas BioCarbon', org: 'Amazonas Consórcio' },
+                        { role: 'INDEPENDENT_VERIFIER', label: 'Verifier', icon: '🛡️', home: 'verifier', name: 'Dr. Elena Rostova', org: 'SGS Climate' },
+                        { role: 'CORPORATE_BUYER', label: 'Buyer', icon: '💼', home: 'marketplace', name: 'Global ESG Fund', org: 'Microsoft ESG' },
+                        { role: 'REGULATOR_AUDITOR', label: 'Auditor', icon: '🏛️', home: 'explorer', name: 'Climate Inspector', org: 'UNFCCC' }
+                      ].map((preset) => (
+                        <button
+                          key={preset.role}
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setAuthUser({
+                              id: `demo-${preset.role.toLowerCase()}`,
+                              loginId: `${preset.label.toLowerCase()}.demo`,
+                              displayName: preset.name,
+                              organization: preset.org,
+                              role: preset.role as any,
+                              walletAddress: wallet.address
+                            });
+                            setActiveTab(preset.home as any);
+                          }}
+                          className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-left truncate ${
+                            authUser.role === preset.role ? 'bg-emerald-50 text-emerald-800 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <span>{preset.icon}</span>
+                          <span className="truncate">{preset.label}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
 
