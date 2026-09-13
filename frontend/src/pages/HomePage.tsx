@@ -915,49 +915,180 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </section>
 
-      {/* ==================== INSTITUTIONAL CALL-TO-ACTION BANNER (XPANSIV DEEP BLUE GLOW) ==================== */}
-      <section className="w-full py-16 px-6 bg-white">
-        <div className="max-w-7xl mx-auto rounded-3xl bg-[#030919] p-12 md:p-20 text-center relative overflow-hidden shadow-2xl border border-white/10">
-          {/* Radial Glow inside box */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-[600px] h-[350px] bg-gradient-to-r from-[#00a699]/25 via-[#15ed48]/20 to-transparent blur-[90px] rounded-full" />
-          </div>
-          <div className="relative z-10 max-w-3xl mx-auto flex flex-col items-center">
-            <span className="font-mono-proof text-xs text-glow-cyan uppercase tracking-widest mb-3 font-semibold">
-              Eliminate Risk Today
+      {/* ==================== WHITEPAPER / PROTOCOL DOCUMENTATION ==================== */}
+      <section id="whitepaper" className="w-full py-24 px-6 bg-[#f8faf9]">
+        <div className="max-w-7xl mx-auto">
+          {/* Section Header */}
+          <div className="text-center mb-16">
+            <span className="inline-block font-mono-proof text-[11px] text-emerald-700 uppercase tracking-widest font-bold bg-emerald-50 border border-emerald-200 rounded-full px-4 py-1.5 mb-4">
+              Protocol Documentation
             </span>
-            <h2 className="font-display-hero text-3xl md:text-5xl font-bold text-white mb-6 leading-tight">
-              Ready to eliminate phantom credits from your balance sheet?
+            <h2 className="font-display-hero text-3xl md:text-4xl font-bold text-black mb-4 leading-tight">
+              Carbonyx Whitepaper
             </h2>
-            <p className="font-body-lg text-base md:text-lg text-slate-300 mb-10 leading-relaxed">
-              Connect your organization to the Carbonyx cryptographic settlement pool or schedule an architectural walkthrough with our core engineering team.
+            <p className="font-body-lg text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
+              A deep-dive into the cryptographic architecture, economic incentive design, and regulatory alignment of the Carbonyx Multi-Source MRV Protocol.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              {wallet.isConnected ? (
-                <button
-                  onClick={() => onNavigateTab('issuer')}
-                  className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-[#15ed48] hover:bg-[#12d23f] text-slate-950 font-label-lg text-sm font-bold shadow-lg shadow-emerald-500/30 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
-                >
-                  <span className="material-symbols-outlined text-[18px]">token</span>
-                  <span>Enter Issuer Studio</span>
-                </button>
-              ) : (
-                <button
-                  onClick={onConnectWallet}
-                  className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-[#15ed48] hover:bg-[#12d23f] text-slate-950 font-label-lg text-sm font-bold shadow-lg shadow-emerald-500/30 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
-                >
-                  <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
-                  <span>Connect Wallet &amp; Launch</span>
-                </button>
-              )}
-              <button
-                onClick={() => onNavigateTab('marketplace')}
-                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full border border-white/30 text-white hover:bg-white/10 font-label-lg text-sm font-semibold backdrop-blur-sm transition-all duration-200 hover:border-glow-cyan/50 transform hover:-translate-y-0.5 active:translate-y-0"
-              >
-                <span className="material-symbols-outlined text-[18px] text-glow-cyan">storefront</span>
-                <span>Explore Offset Marketplace</span>
-              </button>
+          </div>
+
+          {/* Whitepaper Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+
+            {/* Section 1: Problem Statement */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-7 hover:border-emerald-400 hover:shadow-lg transition-all duration-300 group">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500 shrink-0 group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[22px]">warning</span>
+                </div>
+                <div>
+                  <span className="font-mono-proof text-[10px] text-slate-400 uppercase font-bold">§ 1 — Problem</span>
+                  <h3 className="font-headline-sm text-base font-bold text-black mt-0.5">The Phantom Credit Crisis</h3>
+                </div>
+              </div>
+              <p className="font-body-sm text-sm text-slate-600 leading-relaxed">
+                Over 90% of REDD+ credits issued between 2016–2021 were found to be inflated or non-additional by Berkeley researchers. Self-reported PDFs, manual site visits every 2–5 years, and VVBs paid by project developers create a structurally fraudulent incentive loop.
+              </p>
+              <div className="mt-5 pt-4 border-t border-slate-100">
+                <span className="font-mono-proof text-[11px] text-slate-400">Ref: West et al. (2023) · Science · DOI:10.1126/science.ade3535</span>
+              </div>
             </div>
+
+            {/* Section 2: Multi-Source MRV */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-7 hover:border-emerald-400 hover:shadow-lg transition-all duration-300 group">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[22px]">satellite_alt</span>
+                </div>
+                <div>
+                  <span className="font-mono-proof text-[10px] text-slate-400 uppercase font-bold">§ 2 — Architecture</span>
+                  <h3 className="font-headline-sm text-base font-bold text-black mt-0.5">Triple-Source dMRV</h3>
+                </div>
+              </div>
+              <p className="font-body-sm text-sm text-slate-600 leading-relaxed">
+                Three independent data streams — Ground IoT CO₂ flux sensors, financial Capex invoice hashes (SHA-256), and Copernicus Sentinel-2 multispectral NDVI — are ingested, correlated, and Merkle-committed on-chain. Consensus across all 3 is required for minting.
+              </p>
+              <div className="mt-5 pt-4 border-t border-slate-100 flex gap-2 flex-wrap">
+                <span className="font-mono-proof text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">IoT Telemetry</span>
+                <span className="font-mono-proof text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">Sentinel-2 NDVI</span>
+                <span className="font-mono-proof text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">Capex Proofs</span>
+              </div>
+            </div>
+
+            {/* Section 3: Merkle Commitment */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-7 hover:border-emerald-400 hover:shadow-lg transition-all duration-300 group">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 shrink-0 group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[22px]">account_tree</span>
+                </div>
+                <div>
+                  <span className="font-mono-proof text-[10px] text-slate-400 uppercase font-bold">§ 3 — Cryptography</span>
+                  <h3 className="font-headline-sm text-base font-bold text-black mt-0.5">Merkle Root Anchoring</h3>
+                </div>
+              </div>
+              <p className="font-body-sm text-sm text-slate-600 leading-relaxed">
+                Each evidence bundle is hashed into a SHA-256 Merkle tree. The root is committed to <code className="font-mono-data text-xs bg-slate-100 px-1 rounded">CarbonRegistry.commitEvidenceBundle()</code> on-chain. Any post-hoc data tampering invalidates the proof — making retrofitted fraud cryptographically impossible.
+              </p>
+              <div className="mt-5 pt-4 border-t border-slate-100">
+                <span className="font-mono-proof text-[11px] font-bold text-purple-700">14-Day Public Challenge Window</span>
+              </div>
+            </div>
+
+            {/* Section 4: AI Anomaly Scoring */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-7 hover:border-emerald-400 hover:shadow-lg transition-all duration-300 group">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[22px]">psychology</span>
+                </div>
+                <div>
+                  <span className="font-mono-proof text-[10px] text-slate-400 uppercase font-bold">§ 4 — ML Engine</span>
+                  <h3 className="font-headline-sm text-base font-bold text-black mt-0.5">Isolation Forest Anomaly Detection</h3>
+                </div>
+              </div>
+              <p className="font-body-sm text-sm text-slate-600 leading-relaxed">
+                A pre-trained Isolation Forest model scores each ingestion batch on 5 temporal features: max YoY jump, min YoY drop, YoY std dev, coefficient of variation, and max share of total. Confidence below 70% automatically triggers verifier review escalation.
+              </p>
+              <div className="mt-5 pt-4 border-t border-slate-100">
+                <span className="font-mono-proof text-[11px] text-amber-700 font-bold">Threshold: 70% Confidence Required</span>
+              </div>
+            </div>
+
+            {/* Section 5: Staking & Slashing */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-7 hover:border-emerald-400 hover:shadow-lg transition-all duration-300 group">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-600 shrink-0 group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[22px]">gavel</span>
+                </div>
+                <div>
+                  <span className="font-mono-proof text-[10px] text-slate-400 uppercase font-bold">§ 5 — Incentives</span>
+                  <h3 className="font-headline-sm text-base font-bold text-black mt-0.5">Bonded Verifier Economics</h3>
+                </div>
+              </div>
+              <p className="font-body-sm text-sm text-slate-600 leading-relaxed">
+                Verifiers stake ETH in <code className="font-mono-data text-xs bg-slate-100 px-1 rounded">VerifierStakingLedger.sol</code>. Approving a fraudulent bundle results in an irreversible on-chain 50% collateral slash. Buyers receive 100% escrow refunds via <code className="font-mono-data text-xs bg-slate-100 px-1 rounded">EscrowSettlement.sol</code>. Skin-in-the-game replaces trust.
+              </p>
+              <div className="mt-5 pt-4 border-t border-slate-100 flex gap-2">
+                <span className="font-mono-proof text-[10px] px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-100">50% Slash on Fraud</span>
+                <span className="font-mono-proof text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">100% Buyer Refund</span>
+              </div>
+            </div>
+
+            {/* Section 6: On-Chain Contracts */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-7 hover:border-emerald-400 hover:shadow-lg transition-all duration-300 group">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[22px]">token</span>
+                </div>
+                <div>
+                  <span className="font-mono-proof text-[10px] text-slate-400 uppercase font-bold">§ 6 — Contracts</span>
+                  <h3 className="font-headline-sm text-base font-bold text-black mt-0.5">Live Sepolia Deployment</h3>
+                </div>
+              </div>
+              <div className="space-y-2.5">
+                {[
+                  { name: 'CarbonRegistry', addr: '0xD6d094...dcE0', icon: 'hub' },
+                  { name: 'CarbonCreditNFT', addr: '0x201cF0...eC21', icon: 'collections' },
+                  { name: 'VerifierStakingLedger', addr: '0xa78Dbf...BE8D', icon: 'account_balance' },
+                  { name: 'EscrowSettlement', addr: '0x4BFfF0...F533', icon: 'lock' },
+                ].map((c) => (
+                  <div key={c.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-emerald-500 text-[14px]">{c.icon}</span>
+                      <span className="font-mono-data text-[11px] text-slate-700 font-semibold">{c.name}</span>
+                    </div>
+                    <span className="font-mono-data text-[10px] text-slate-400">{c.addr}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5 pt-4 border-t border-slate-100">
+                <a
+                  href="https://sepolia.etherscan.io/address/0xd6d094ce5743e8ac8500f4c3bbec95347b31dce0"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 font-mono-proof text-[11px] text-emerald-700 hover:text-emerald-800 font-bold transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                  View on Etherscan (Verified ✓)
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom CTA row for whitepaper */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+            <button
+              onClick={onConnectWallet}
+              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-[#15ed48] hover:bg-[#12d23f] text-slate-950 text-sm font-bold shadow-lg shadow-emerald-500/30 transition-all duration-200 transform hover:-translate-y-0.5"
+            >
+              <span className="material-symbols-outlined text-[18px]">rocket_launch</span>
+              <span>{wallet.isConnected ? 'Launch Protocol' : 'Get Started Free'}</span>
+            </button>
+            <button
+              onClick={() => onNavigateTab('explorer')}
+              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5"
+            >
+              <span className="material-symbols-outlined text-[18px] text-emerald-600">explore</span>
+              <span>Explore Baseline Registry</span>
+            </button>
           </div>
         </div>
       </section>

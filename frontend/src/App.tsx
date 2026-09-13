@@ -243,7 +243,8 @@ export default function App() {
                 ['#about', 'About'],
                 ['#protocol', 'Protocol'],
                 ['#roles', 'Roles'],
-                ['#security', 'Security']
+                ['#security', 'Security'],
+                ['#whitepaper', 'Whitepaper']
               ].map(([href, label]) => (
                 <a
                   key={href}
@@ -259,30 +260,22 @@ export default function App() {
               ))}
             </nav>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => { setAuthEntryMode('login'); setShowLogin(true); }}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
                   isPublicScrolled
-                    ? 'text-[#222222] hover:bg-[#f7f7f7]'
-                    : 'text-white hover:bg-white/15'
+                    ? 'text-[#222222] hover:bg-[#f0f0f0]'
+                    : 'text-white hover:bg-white/10'
                 }`}
               >
-                Login
+                Log in
               </button>
               <button
                 onClick={() => { setAuthEntryMode('signup'); setShowLogin(true); }}
-                className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-semibold shadow-sm transition-all hover:shadow-md ${
-                  isPublicScrolled
-                    ? 'border-[#dddddd] bg-white text-[#222222] hover:bg-[#f7f7f7]'
-                    : 'border-white/30 bg-white/15 text-white backdrop-blur hover:bg-white/25'
-                }`}
+                className="rounded-full px-5 py-1.5 text-sm font-bold bg-[#15ed48] text-slate-950 hover:bg-[#12d23f] transition-all shadow-sm hover:shadow-emerald-500/30"
               >
-                <Menu className="h-4 w-4" />
-                <span className={`flex h-6 w-6 items-center justify-center rounded-full text-white ${isPublicScrolled ? 'bg-[#222222]' : 'bg-white/30'}`}>
-                  <UserRound className="h-3.5 w-3.5" />
-                </span>
-                <span className="hidden sm:inline">Sign up</span>
+                Get Started
               </button>
             </div>
           </div>
